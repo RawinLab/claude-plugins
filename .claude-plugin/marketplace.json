@@ -16,8 +16,10 @@
     },
     {
       "name": "rw-speckit-orchestrator",
+      "version": "1.0.0",
       "source": "./plugins/rw-speckit-orchestrator",
-      "description": "Automated workflow orchestrator for Spec-Kit driven development with parallel workers and guaranteed completion"
+      "description": "Automated workflow orchestrator for Spec-Kit driven development with parallel workers and guaranteed completion",
+      "category": "workflow"
     }
   ]
 }

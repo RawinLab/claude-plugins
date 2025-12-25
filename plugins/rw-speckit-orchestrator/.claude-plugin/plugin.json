@@ -2,7 +2,10 @@
   "name": "rw-speckit-orchestrator",
   "version": "1.0.0",
   "description": "Automated workflow orchestrator for Spec-Kit driven development. Manages parallel workers to implement all features from speckit-guide.md with guaranteed completion.",
-  "author": "RawinLab",
+  "author": {
+    "name": "RawinLab",
+    "url": "https://github.com/rawinlab"
+  },
   "license": "MIT",
   "repository": "https://github.com/RawinLab/claude-plugins",
   "keywords": [
