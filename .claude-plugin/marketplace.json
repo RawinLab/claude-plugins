@@ -15,8 +15,8 @@
       "description": "Bidirectional Telegram integration - notifications, questions, and remote control"
     },
     {
-      "name": "speckit-orchestrator",
-      "source": "./plugins/speckit-orchestrator",
+      "name": "rw-speckit-orchestrator",
+      "source": "./plugins/rw-speckit-orchestrator",
       "description": "Automated workflow orchestrator for Spec-Kit driven development with parallel workers and guaranteed completion"
     }
   ]
