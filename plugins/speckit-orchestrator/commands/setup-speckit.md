@@ -97,20 +97,59 @@ If user agrees, commit the speckit-guide.md.
 >
 > ถ้าต้องการ ใช้ `/orchestrate` หลังจาก setup เสร็จ"
 
-### Step 8: Initialize Spec-Kit
+### Step 8: Check Spec-Kit Installation
+First check if specify CLI is installed:
+
+```bash
+specify --version
+```
+
+If not installed, guide through installation:
+
+**Say:**
+> "ยังไม่ได้ติดตั้ง Spec-Kit CLI ครับ ให้ผมช่วยติดตั้ง..."
+
+```bash
+# Option 1: Using uv (recommended)
+uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
+
+# Option 2: Using pip
+pip install specify-cli
+```
+
+After installation verified, initialize:
+
 **Ask:**
 > "พร้อมรัน `specify init` เพื่อเริ่มต้น Spec-Kit ไหมครับ?"
 
-If yes, guide through:
+If yes:
 ```bash
 specify init . --ai claude --force
 ```
 
-### Step 9: Create Constitution
-**Ask:**
-> "ต้องการสร้าง constitution ตอนนี้เลยไหมครับ?"
+This creates:
+- `.specify/` directory
+- `.specify/memory/` for context
+- `.specify/config.json` for configuration
 
-If yes, run `/speckit.constitution` with principles from guide.
+### Step 9: Create Constitution
+**This is IMPORTANT** - Constitution defines project principles.
+
+**Say:**
+> "ขั้นตอนสำคัญ: สร้าง Constitution - หลักการและค่านิยมของโปรเจค
+>
+> Constitution จะถูกใช้อ้างอิงในทุก feature ที่ implement"
+
+**Ask:**
+> "พร้อมสร้าง constitution ไหมครับ?"
+
+If yes, run `/speckit.constitution` with principles from the speckit-guide.md:
+- Core values (e.g., Simplicity, Reliability, Security)
+- Technical principles (e.g., API-First, Async-First)
+- Quality standards (e.g., 80% test coverage)
+- Development principles (e.g., YAGNI, DRY, SOLID)
+
+The constitution will be saved at `.specify/memory/constitution.md`
 
 ### Step 10: Summary
 Provide final summary:

@@ -25,18 +25,45 @@ cd ~/.claude/plugins
 git clone https://github.com/RawinLab/claude-plugins
 ```
 
-## Quick Start
+## Prerequisites
 
-### Option 1: New Project (Create speckit-guide.md first)
+### Install Spec-Kit CLI
 
 ```bash
-# Navigate to your project
+# Option 1: Using uv (recommended)
+uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
+
+# Option 2: Using pip
+pip install specify-cli
+
+# Verify installation
+specify --version
+```
+
+### Other Requirements
+
+- Claude Code CLI
+- tmux
+- jq (for state file parsing)
+
+## Quick Start
+
+### Option 1: New Project (Full Setup)
+
+```bash
+# 1. Navigate to your project
 cd /path/to/your/project
 
-# Run setup wizard to create speckit-guide.md
+# 2. Run setup wizard to create speckit-guide.md
 /setup-speckit
 
-# Then start orchestration
+# 3. Initialize Spec-Kit
+specify init . --ai claude --force
+
+# 4. Create constitution (project principles)
+/speckit.constitution
+
+# 5. Start orchestration to implement all features
 /orchestrate
 ```
 
@@ -46,11 +73,21 @@ cd /path/to/your/project
 # Navigate to your project with speckit-guide.md
 cd /path/to/your/project
 
-# Start orchestration
-/orchestrate
+# Initialize Spec-Kit if not done
+specify init . --ai claude --force
 
-# Or with options
-/orchestrate --guide ./speckit-guide.md --workers 4
+# Create constitution if not exists
+/speckit.constitution
+
+# Start orchestration
+/orchestrate --workers 4
+```
+
+### Option 3: Resume Existing Progress
+
+```bash
+# If you've already implemented some features manually
+/orchestrate --set-completed "001,002,003,004,005"
 ```
 
 ## Commands
