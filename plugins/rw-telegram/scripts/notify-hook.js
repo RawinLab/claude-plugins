@@ -53,8 +53,37 @@ const NOTIFICATION_TYPES = {
 };
 
 /**
- * Analyze transcript to determine notification type
- * Based on claude-notifications-go state machine logic
+ * Parse Claude's categorization from prompt hook result
+ * Claude outputs JSON like: {"category": "stop", "summary": "..."}
+ */
+function parseClaudeAnalysis(hookResult) {
+  if (!hookResult) {
+    return null;
+  }
+
+  try {
+    // The prompt hook result might be in different formats
+    // Try to extract JSON from the result
+    const jsonMatch = hookResult.match(/\{[\s\S]*"category"[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.category) {
+        return {
+          type: parsed.category,
+          details: parsed.summary || parsed.reason || null
+        };
+      }
+    }
+  } catch {
+    // Failed to parse Claude's response
+  }
+
+  return null;
+}
+
+/**
+ * Fallback: Analyze transcript to determine notification type
+ * Only used if Claude's analysis is not available
  */
 function analyzeTranscript(transcriptPath) {
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
@@ -69,31 +98,37 @@ function analyzeTranscript(transcriptPath) {
     const recentLines = lines.slice(-15);
     const recentText = recentLines.join('\n').toLowerCase();
 
-    // Check for session limit
+    // Check for session limit - these are system messages, unlikely false positive
     if (recentText.includes('context limit') ||
         recentText.includes('token limit') ||
         recentText.includes('conversation too long')) {
       return { type: 'limit', details: 'Context limit reached' };
     }
 
-    // Check for API error (more specific patterns to avoid false positives)
-    if (recentText.includes('api error') ||
-        recentText.includes('error 401') ||
-        recentText.includes('status 401') ||
-        recentText.includes('http 401') ||
-        recentText.includes('authentication failed') ||
-        recentText.includes('unauthorized access') ||
-        recentText.includes('invalid api key') ||
-        recentText.includes('api key expired')) {
-      return { type: 'error', details: 'API authentication error' };
+    // For API errors - be more conservative, only match actual error responses
+    // Don't match when Claude is discussing or fixing errors
+    const errorPatterns = [
+      /api.*returned.*error/i,
+      /authentication failed/i,
+      /rate limit exceeded/i,
+      /service unavailable/i
+    ];
+
+    // Check if error appears in tool output context (actual error)
+    // vs in discussion context (talking about errors)
+    const hasActualError = errorPatterns.some(p => p.test(recentText)) &&
+      (recentText.includes('tool_result') || recentText.includes('error_code'));
+
+    if (hasActualError) {
+      return { type: 'error', details: 'API error' };
     }
 
-    // Check for review (read-only operations)
-    const readOnlyPatterns = ['read', 'grep', 'glob', 'search', 'find', 'list'];
-    const writePatterns = ['write', 'edit', 'bash', 'create', 'delete', 'modify'];
+    // Check for review (read-only operations in tools used)
+    const readOnlyPatterns = ['read', 'grep', 'glob'];
+    const writePatterns = ['write', 'edit', 'bash'];
 
-    const hasReadOnly = readOnlyPatterns.some(p => recentText.includes(p));
-    const hasWrite = writePatterns.some(p => recentText.includes(p));
+    const hasReadOnly = readOnlyPatterns.some(p => recentText.includes(`tool.*${p}`));
+    const hasWrite = writePatterns.some(p => recentText.includes(`tool.*${p}`));
 
     if (hasReadOnly && !hasWrite) {
       return { type: 'review', details: 'Read-only analysis completed' };
@@ -140,11 +175,21 @@ async function main() {
     let notifType = eventType;
     let details = null;
 
-    // For stop events, analyze transcript to get smarter type
+    // For stop events, try Claude's analysis first, then fallback
     if (eventType === 'stop') {
-      const analysis = analyzeTranscript(input.transcript_path);
-      notifType = analysis.type;
-      details = analysis.details;
+      // Try to get Claude's analysis from previous prompt hook
+      const claudeAnalysis = parseClaudeAnalysis(input.hook_result || input.previous_hook_result);
+
+      if (claudeAnalysis) {
+        // Use Claude's intelligent categorization
+        notifType = claudeAnalysis.type;
+        details = claudeAnalysis.details;
+      } else {
+        // Fallback to transcript analysis
+        const analysis = analyzeTranscript(input.transcript_path);
+        notifType = analysis.type;
+        details = analysis.details;
+      }
     }
 
     // Get notification config
