@@ -1,0 +1,41 @@
+{
+  "name": "rw-telegram-claude-plugin",
+  "version": "1.0.0",
+  "description": "Bidirectional Telegram communication for Claude Code - notifications, questions, and remote commands",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "worker:start": "node scripts/worker-cli.js start",
+    "worker:stop": "node scripts/worker-cli.js stop",
+    "worker:restart": "node scripts/worker-cli.js restart",
+    "worker:status": "node scripts/worker-cli.js status"
+  },
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "telegram",
+    "notifications",
+    "remote-control",
+    "bidirectional"
+  ],
+  "author": "RawinLab",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rawinlab/rw-telegram-claude-plugin"
+  },
+  "files": [
+    ".claude-plugin",
+    "hooks",
+    "scripts",
+    "commands",
+    "lib",
+    ".mcp.json",
+    "README.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.1"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "rawinlab-plugins",
+  "owner": {
+    "name": "RawinLab",
+    "url": "https://github.com/rawinlab"
+  },
+  "metadata": {
+    "description": "Claude Code plugins by RawinLab - Productivity tools for developers",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "rw-telegram",
+      "source": "./plugins/rw-telegram",
+      "description": "Bidirectional Telegram integration - notifications, questions, and remote control"
+    }
+  ]
+}
