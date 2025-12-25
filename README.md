@@ -24,6 +24,7 @@
 | Plugin | Description | Status |
 |--------|-------------|--------|
 | [rw-telegram](./plugins/rw-telegram) | Bidirectional Telegram integration - notifications, questions, and remote control | ✅ Stable |
+| [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | Automated workflow orchestrator for Spec-Kit driven development with parallel workers | ✅ Stable |
 
 ---
 
@@ -40,6 +41,25 @@ Bidirectional Telegram integration for Claude Code:
 - **Auto-start Worker** - No manual setup required after configuration
 
 [View Documentation](./plugins/rw-telegram/README.md)
+
+### rw-speckit-orchestrator
+
+Automated workflow orchestrator for Spec-Kit driven development:
+
+- **Parallel Workers** - Run multiple Claude Code agents simultaneously (1-8 workers)
+- **Real-time Dashboard** - Monitor progress via tmux
+- **Auto-Answer** - Automatically answer clarify/analyze questions with recommended options
+- **Guaranteed Completion** - Watchdog ensures all features are implemented
+- **Resume Support** - Stop and resume from saved state
+- **Import Progress** - Start from existing manually-completed features
+
+**Commands:**
+- `/setup-speckit` - Interactive wizard to create speckit-guide.md
+- `/orchestrate` - Start parallel implementation of all features
+- `/orch-status` - Check orchestration progress
+- `/orch-stop` - Gracefully stop orchestration
+
+[View Documentation](./plugins/rw-speckit-orchestrator/README.md)
 
 ---
 
@@ -64,6 +84,22 @@ EOF
 
 chmod 600 ~/.claude-telegram/config.json
 ```
+
+### rw-speckit-orchestrator Configuration
+
+Requires [Spec-Kit CLI](https://github.com/github/spec-kit) to be installed:
+
+```bash
+# Install Spec-Kit CLI
+uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
+
+# Verify installation
+specify --version
+```
+
+Other requirements:
+- tmux
+- jq (for state file parsing)
 
 ---
 
