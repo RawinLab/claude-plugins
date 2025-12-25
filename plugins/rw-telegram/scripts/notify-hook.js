@@ -76,11 +76,15 @@ function analyzeTranscript(transcriptPath) {
       return { type: 'limit', details: 'Context limit reached' };
     }
 
-    // Check for API error
+    // Check for API error (more specific patterns to avoid false positives)
     if (recentText.includes('api error') ||
-        recentText.includes('401') ||
-        recentText.includes('authentication') ||
-        recentText.includes('unauthorized')) {
+        recentText.includes('error 401') ||
+        recentText.includes('status 401') ||
+        recentText.includes('http 401') ||
+        recentText.includes('authentication failed') ||
+        recentText.includes('unauthorized access') ||
+        recentText.includes('invalid api key') ||
+        recentText.includes('api key expired')) {
       return { type: 'error', details: 'API authentication error' };
     }
 
