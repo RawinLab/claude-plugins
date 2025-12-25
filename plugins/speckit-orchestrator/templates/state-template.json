@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "session_id": "",
+  "started_at": "",
+  "updated_at": "",
+  "status": "initializing",
+  "config": {
+    "guide_path": "",
+    "workers_count": 4,
+    "project_name": "",
+    "project_path": ""
+  },
+  "progress": {
+    "total_features": 0,
+    "completed": 0,
+    "in_progress": 0,
+    "pending": 0,
+    "failed": 0
+  },
+  "features": {},
+  "workers": {
+    "W1": { "status": "idle", "current_feature": null },
+    "W2": { "status": "idle", "current_feature": null },
+    "W3": { "status": "idle", "current_feature": null },
+    "W4": { "status": "idle", "current_feature": null }
+  },
+  "logs": []
+}

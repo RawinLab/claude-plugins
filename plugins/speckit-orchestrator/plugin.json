@@ -1,0 +1,34 @@
+{
+  "name": "speckit-orchestrator",
+  "version": "1.0.0",
+  "description": "Automated workflow orchestrator for Spec-Kit driven development. Manages parallel workers to implement all features from speckit-guide.md with guaranteed completion.",
+  "author": "RawinLab",
+  "license": "MIT",
+  "repository": "https://github.com/RawinLab/claude-plugins",
+  "keywords": [
+    "speckit",
+    "orchestrator",
+    "workflow",
+    "automation",
+    "parallel",
+    "tmux"
+  ],
+  "commands": [
+    "commands/setup-speckit.md",
+    "commands/orchestrate.md",
+    "commands/orch-status.md",
+    "commands/orch-stop.md"
+  ],
+  "agents": [
+    "agents/coordinator.md",
+    "agents/worker.md"
+  ],
+  "skills": [
+    "skills/guide-parser.md",
+    "skills/state-manager.md"
+  ],
+  "hooks": [
+    "hooks/auto-answer.json",
+    "hooks/progress-reporter.json"
+  ]
+}
