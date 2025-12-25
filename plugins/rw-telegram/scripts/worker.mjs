@@ -11,6 +11,8 @@
  */
 
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { loadConfig, saveWorkerPid, removeWorkerPid } from '../lib/config.mjs';
 import {
@@ -57,6 +59,165 @@ let isShuttingDown = false;
 
 const DEFAULT_TMUX_SESSION = 'claude-telegram';
 const DEFAULT_CLAUDE_CMD = 'claude --dangerously-skip-permissions';
+
+// ============================================
+// Claude Process Discovery & Monitoring
+// ============================================
+
+/**
+ * List all running Claude Code processes
+ * @returns {Promise<Array<{pid: number, cwd: string, uptime: string, cmdline: string}>>}
+ */
+async function listClaudeProcesses() {
+  const processes = [];
+
+  try {
+    // Find all claude processes (main binary, not child processes)
+    const psResult = await runProcess('ps', ['aux']);
+    if (psResult.code !== 0) return processes;
+
+    const lines = psResult.stdout.split('\n');
+
+    for (const line of lines) {
+      // Match lines that have 'claude' as the main command (not subprocesses)
+      if (line.match(/\bclaude\b/) && !line.includes('grep') && !line.includes('worker.mjs')) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 11) {
+          const pid = parseInt(parts[1], 10);
+          const startTime = parts[8];
+          const command = parts.slice(10).join(' ');
+
+          // Get working directory for this process
+          let cwd = 'unknown';
+          try {
+            const cwdResult = await runProcess('readlink', ['-f', `/proc/${pid}/cwd`]);
+            if (cwdResult.code === 0) {
+              cwd = cwdResult.stdout.trim();
+            }
+          } catch {
+            // Ignore errors reading cwd
+          }
+
+          // Only include actual Claude Code processes
+          if (command.includes('claude') && !command.includes('worker')) {
+            processes.push({
+              pid,
+              cwd,
+              startTime,
+              command: command.slice(0, 50) + (command.length > 50 ? '...' : '')
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logError('Error listing Claude processes:', error.message);
+  }
+
+  return processes;
+}
+
+/**
+ * Get current todos for a Claude process by its working directory
+ * @param {string} cwd - Working directory
+ * @returns {Promise<Array<{content: string, status: string}>>}
+ */
+async function getProcessTodos(cwd) {
+  const todos = [];
+  const todoDir = path.join(process.env.HOME || '/root', '.claude', 'todos');
+
+  try {
+    // Read todo files and find matching ones
+    const lsResult = await runProcess('ls', ['-la', todoDir]);
+    if (lsResult.code !== 0) return todos;
+
+    const files = lsResult.stdout.split('\n')
+      .filter(line => line.includes('.json'))
+      .map(line => {
+        const parts = line.trim().split(/\s+/);
+        return parts[parts.length - 1];
+      });
+
+    for (const file of files) {
+      try {
+        const filePath = path.join(todoDir, file);
+        const content = fs.readFileSync(filePath, 'utf8');
+        const data = JSON.parse(content);
+
+        if (Array.isArray(data)) {
+          for (const todo of data) {
+            if (todo.content && todo.status) {
+              todos.push({
+                content: todo.content,
+                status: todo.status
+              });
+            }
+          }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  } catch (error) {
+    logError('Error reading todos:', error.message);
+  }
+
+  return todos;
+}
+
+/**
+ * Get terminal output for a specific PID using /proc filesystem
+ * @param {number} pid - Process ID
+ * @param {number} lines - Number of lines to capture
+ * @returns {Promise<string>}
+ */
+async function getProcessOutput(pid, lines = 30) {
+  try {
+    // Check if process exists
+    const checkResult = await runProcess('kill', ['-0', String(pid)]);
+    if (checkResult.code !== 0) {
+      return 'Process not found or not accessible';
+    }
+
+    // Try to get terminal output via /proc
+    const fdPath = `/proc/${pid}/fd/1`;
+    try {
+      const linkResult = await runProcess('readlink', ['-f', fdPath]);
+      if (linkResult.code === 0) {
+        const termPath = linkResult.stdout.trim();
+        if (termPath.includes('pts') || termPath.includes('tty')) {
+          return `Process is running on terminal: ${termPath}\n\nUse /tmux_tail if running in tmux, or check the terminal directly.`;
+        }
+      }
+    } catch {
+      // Ignore
+    }
+
+    // Get process info
+    const statusResult = await runProcess('cat', [`/proc/${pid}/status`]);
+    if (statusResult.code === 0) {
+      const status = statusResult.stdout;
+      const stateMatch = status.match(/State:\s+(\S+)/);
+      const vmRssMatch = status.match(/VmRSS:\s+(\d+\s+\w+)/);
+      const threadsMatch = status.match(/Threads:\s+(\d+)/);
+
+      return [
+        `📊 *Process ${pid} Status*`,
+        '',
+        `State: ${stateMatch ? stateMatch[1] : 'unknown'}`,
+        `Memory: ${vmRssMatch ? vmRssMatch[1] : 'unknown'}`,
+        `Threads: ${threadsMatch ? threadsMatch[1] : 'unknown'}`,
+        '',
+        '_Note: For live output, the process must be in a tmux session._',
+        '_Use /tmux\\_tail to view tmux session output._'
+      ].join('\n');
+    }
+
+    return 'Unable to read process information';
+  } catch (error) {
+    return `Error: ${error.message}`;
+  }
+}
 
 /**
  * Run a process and get output
@@ -272,6 +433,11 @@ async function handleMessage(message) {
         '/help - Show this help',
         '/cancel - Cancel pending question',
         '',
+        '*Process Monitoring:*',
+        '/processes - List all running Claude processes',
+        '/observe <pid> - View process status & info',
+        '/todos - Show current tasks being tracked',
+        '',
         '*Claude Control (tmux):*',
         '/cd <path> - Set working directory',
         '/tmux\\_start - Start Claude in tmux session',
@@ -324,6 +490,91 @@ async function handleMessage(message) {
         }
         pendingQuestions.clear();
         await sendMessage(config.bot_token, chatId, '✅ All pending questions cancelled.');
+      }
+      break;
+
+    // ============================================
+    // Process Monitoring Commands
+    // ============================================
+
+    case '/processes':
+      try {
+        const processes = await listClaudeProcesses();
+
+        if (processes.length === 0) {
+          await sendMessage(config.bot_token, chatId, 'No Claude processes found running.');
+          break;
+        }
+
+        const lines = [
+          `*🖥️ Running Claude Processes (${processes.length})*`,
+          ''
+        ];
+
+        for (const proc of processes) {
+          const projectName = path.basename(proc.cwd);
+          lines.push(`*PID ${proc.pid}* - \`${projectName}\``);
+          lines.push(`  📂 ${proc.cwd}`);
+          lines.push(`  ⏰ Started: ${proc.startTime}`);
+          lines.push(`  💻 \`${proc.command}\``);
+          lines.push('');
+        }
+
+        lines.push('_Use /observe <pid> to view process details_');
+        lines.push('_Use /todos to see current tasks_');
+
+        await sendMessage(config.bot_token, chatId, lines.join('\n'));
+      } catch (error) {
+        await sendMessage(config.bot_token, chatId, `❌ Error: ${error.message}`);
+      }
+      break;
+
+    case '/observe':
+      try {
+        const pid = parseInt(rest, 10);
+        if (!pid) {
+          await sendMessage(config.bot_token, chatId,
+            'Usage: /observe <pid>\n\nExample: /observe 1234\n\nUse /processes to list available PIDs.');
+          break;
+        }
+
+        const output = await getProcessOutput(pid);
+        await sendMessage(config.bot_token, chatId, output);
+      } catch (error) {
+        await sendMessage(config.bot_token, chatId, `❌ Error: ${error.message}`);
+      }
+      break;
+
+    case '/todos':
+      try {
+        // First, get the list of Claude processes to find their working directories
+        const processes = await listClaudeProcesses();
+        const todos = await getProcessTodos(processes.length > 0 ? processes[0].cwd : null);
+
+        if (todos.length === 0) {
+          await sendMessage(config.bot_token, chatId, 'No active todos found.');
+          break;
+        }
+
+        const statusEmojis = {
+          'in_progress': '🔄',
+          'pending': '⏳',
+          'completed': '✅'
+        };
+
+        const lines = [
+          '*📋 Current Claude Tasks*',
+          ''
+        ];
+
+        for (const todo of todos) {
+          const emoji = statusEmojis[todo.status] || '📌';
+          lines.push(`${emoji} ${todo.content}`);
+        }
+
+        await sendMessage(config.bot_token, chatId, lines.join('\n'));
+      } catch (error) {
+        await sendMessage(config.bot_token, chatId, `❌ Error: ${error.message}`);
       }
       break;
 
