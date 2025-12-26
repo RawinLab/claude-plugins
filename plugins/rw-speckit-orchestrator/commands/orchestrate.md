@@ -7,9 +7,9 @@ arguments:
     required: false
     default: "./speckit-guide.md"
   - name: workers
-    description: Number of parallel workers (1-8)
+    description: Number of workers (1 recommended for sequential workflow)
     required: false
-    default: "4"
+    default: "1"
   - name: set-completed
     description: Comma-separated feature IDs to mark as already completed (e.g., "001,002,003")
     required: false
@@ -26,14 +26,26 @@ arguments:
 
 You are the Speckit Orchestrator Coordinator. Your job is to set up and start the automated workflow.
 
+## IMPORTANT: Sequential Workflow
+
+**Features are implemented ONE AT A TIME, not in parallel.**
+
+The workflow is:
+1. Claim feature → Run ALL 6 speckit steps → Create PR → Merge → Next feature
+
+This ensures:
+- Each feature is fully complete before starting next
+- Code is merged to main between features
+- Dependencies are properly resolved
+
 ## Your Mission
 
 **CRITICAL: Ensure ALL features in speckit-guide.md are fully implemented.**
 
 This is your PRIMARY and NON-NEGOTIABLE goal. You must:
-1. Set up the orchestration infrastructure
-2. Ensure workers are spawned to process ALL features
-3. The watchdog will keep workers running until 100% complete
+1. Set up the orchestration state file
+2. Start the worker agent which will process ALL features sequentially
+3. The worker will auto-continue until all features are done
 
 ## Arguments Received
 
