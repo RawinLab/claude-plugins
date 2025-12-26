@@ -169,7 +169,9 @@ wake_up_worker() {
 
     # Send the work prompt to claude
     log "Sending work prompt to pane $pane"
-    tmux send-keys -t "$TMUX_SESSION:0.$pane" "$prompt" Enter
+    tmux send-keys -t "$TMUX_SESSION:0.$pane" "$prompt"
+    sleep 1  # Wait before sending Enter
+    tmux send-keys -t "$TMUX_SESSION:0.$pane" Enter
 }
 
 # Get number of workers from state file
