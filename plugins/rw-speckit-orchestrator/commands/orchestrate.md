@@ -7,190 +7,80 @@ arguments:
     required: false
     default: "./speckit-guide.md"
   - name: workers
-    description: Number of workers (1 recommended for sequential workflow)
+    description: Number of workers (default 1 for sequential)
     required: false
     default: "1"
-  - name: set-completed
-    description: Comma-separated feature IDs to mark as already completed (e.g., "001,002,003")
-    required: false
-  - name: start-from
-    description: Feature ID to start from (skip earlier features)
-    required: false
-  - name: dry-run
-    description: Parse guide and show plan without executing
+  - name: resume
+    description: Resume from existing state file (true/false)
     required: false
     default: "false"
 ---
 
-# Speckit Orchestrator - Start Command
+# Speckit Orchestrator
 
-You are the Speckit Orchestrator Coordinator. Your job is to set up and start the automated workflow.
+You are the orchestrator. Set up and start the automated workflow.
 
-## IMPORTANT: Sequential Workflow
+## Step 1: Check/Create State File
 
-**Features are implemented ONE AT A TIME, not in parallel.**
+If `${resume}` is "false" OR `.claude/orchestrator.state.json` doesn't exist:
 
-The workflow is:
-1. Claim feature → Run ALL 6 speckit steps → Create PR → Merge → Next feature
+1. Read `${guide}` to get project name and feature list
+2. Create `.claude/orchestrator.state.json` with all features as "pending"
+3. Create `.claude/` directory if needed
 
-This ensures:
-- Each feature is fully complete before starting next
-- Code is merged to main between features
-- Dependencies are properly resolved
+If resuming, just read the existing state file.
 
-## Your Mission
-
-**CRITICAL: Ensure ALL features in speckit-guide.md are fully implemented.**
-
-This is your PRIMARY and NON-NEGOTIABLE goal. You must:
-1. Set up the orchestration state file
-2. Start the worker agent which will process ALL features sequentially
-3. The worker will auto-continue until all features are done
-
-## Arguments Received
-
-- **Guide Path**: ${guide}
-- **Workers Count**: ${workers}
-- **Set Completed**: ${set-completed}
-- **Start From**: ${start-from}
-- **Dry Run**: ${dry-run}
-
-## Step 1: Parse speckit-guide.md
-
-Read the guide file and extract:
-1. Project name
-2. List of all features with:
-   - Feature ID (e.g., "001", "002")
-   - Feature name
-   - Priority (P0, P1, P2, etc.)
-   - Dependencies (which features must complete first)
-   - Phase (1, 2, 3, etc.)
-
-Use the `guide-parser` skill to help with this.
-
-## Step 2: Create Initial State File
-
-Create `.claude/orchestrator.state.json` with:
-
-```json
-{
-  "version": "1.0.0",
-  "session_id": "speckit-{project_name_lowercase}-{timestamp}",
-  "started_at": "{ISO timestamp}",
-  "updated_at": "{ISO timestamp}",
-  "status": "running",
-  "config": {
-    "guide_path": "{guide}",
-    "workers_count": {workers},
-    "project_name": "{from guide}",
-    "project_path": "{current directory}"
-  },
-  "progress": {
-    "total_features": {count},
-    "completed": 0,
-    "in_progress": 0,
-    "pending": {count},
-    "failed": 0
-  },
-  "features": {
-    "001": {
-      "name": "feature-name",
-      "status": "pending",
-      "priority": "P0",
-      "dependencies": [],
-      "steps_completed": [],
-      "current_step": null,
-      "worker_id": null,
-      "retry_count": 0
-    }
-  },
-  "workers": {}
-}
-```
-
-If `--set-completed` is provided, mark those features as completed with all steps done.
-
-## Step 3: Setup tmux Session
-
-Create tmux session with layout:
-- Pane 0: Dashboard (top)
-- Panes 1-N: Workers (bottom, side by side)
+## Step 2: Get Project Name
 
 ```bash
-# Create session with project-specific name for isolation
-# PROJECT_NAME should be lowercase, e.g., "vidiwo", "civiclens"
-tmux new-session -d -s speckit-${PROJECT_NAME} -x 200 -y 50
-
-# Split for dashboard (top 40%)
-tmux split-window -v -p 60 -t speckit-${PROJECT_NAME}
-
-# Split worker panes horizontally
-# For 4 workers, split pane 1 into 4 equal parts
+PROJECT_NAME=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+echo "Project: $PROJECT_NAME"
 ```
 
-## Step 4: Start Watchdog Script
+## Step 3: Start Watchdog
 
-Start the watchdog.sh script in the background:
+Run this command to start the watchdog in background:
 
 ```bash
-# The watchdog runs in the dashboard pane or separately
-nohup ${CLAUDE_PLUGIN_ROOT}/scripts/watchdog.sh > .claude/watchdog.log 2>&1 &
+cd "$(pwd)" && nohup /home/dev/projects/rawinlab-claude-plugins/plugins/rw-speckit-orchestrator/scripts/watchdog.sh > .claude/watchdog.log 2>&1 &
+echo "Watchdog PID: $!"
 ```
 
-The watchdog will:
-- Monitor if workers are idle
-- Wake up idle workers by running claude command
-- Check if all features complete
-- Exit only when 100% done
-
-## Step 5: Spawn Initial Workers
-
-For each worker pane, start a Claude Code session with the worker agent:
+## Step 4: Create tmux Session
 
 ```bash
-tmux send-keys -t speckit-${PROJECT_NAME}:0.{pane} "claude --print '$(cat <<EOF
-You are Worker {N}.
-Read state file: .claude/orchestrator.state.json
-Find next pending feature and execute the speckit workflow.
-Update state file with progress.
-When done, pick next feature or exit if none.
-EOF
-)'" Enter
+PROJECT_NAME=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+tmux kill-session -t "speckit-${PROJECT_NAME}" 2>/dev/null
+tmux new-session -d -s "speckit-${PROJECT_NAME}" -x 200 -y 50
+tmux send-keys -t "speckit-${PROJECT_NAME}" "cd $(pwd) && claude" Enter
+echo "Created tmux session: speckit-${PROJECT_NAME}"
 ```
 
-## Step 6: Output Summary
+## Step 5: Output Instructions
 
-After setup, output:
+After setup, tell the user:
 
 ```
-Speckit Orchestrator Started
-============================
-Project: {project_name}
-Guide: {guide_path}
-Features: {total} total, {pending} pending
-Workers: {workers_count}
+Orchestrator Started!
+=====================
+Project: {PROJECT_NAME}
+Session: speckit-{PROJECT_NAME}
 
-Session: speckit-{project_name}
-Dashboard: tmux attach -t speckit-{project_name}
+To monitor:
+  tmux attach -t speckit-{PROJECT_NAME}
 
-Watchdog PID: {pid}
-State File: .claude/orchestrator.state.json
+To check progress:
+  cat .claude/orchestrator.state.json | jq .progress
 
-The orchestrator will run until ALL features are complete.
-Press Ctrl+C in tmux to stop (state will be saved for resume).
+Watchdog will auto-send prompts to claude when idle.
 ```
 
-## Dry Run Mode
+## IMPORTANT
 
-If `--dry-run` is true:
-1. Parse the guide
-2. Show the feature list and execution plan
-3. Do NOT create tmux session or start workers
-4. Exit after showing plan
+After completing these steps, the watchdog will:
+1. Detect claude is waiting for input
+2. Send work prompt automatically
+3. Claude processes the feature
+4. Repeat until all features done
 
-## Important Notes
-
-1. **All Logic is in Claude Agents** - The watchdog.sh is dumb, it only monitors and wakes up workers
-2. **Workers Decide What To Do** - Each worker reads state file and picks next pending feature
-3. **State File is Truth** - All coordination happens through the state file
-4. **Verification in Workers** - Workers verify their own implementation completeness
+You do NOT need to manually send prompts - watchdog handles it.
