@@ -75,7 +75,7 @@ Create `.claude/orchestrator.state.json` with:
 ```json
 {
   "version": "1.0.0",
-  "session_id": "speckit-orch-{timestamp}",
+  "session_id": "speckit-{project_name_lowercase}-{timestamp}",
   "started_at": "{ISO timestamp}",
   "updated_at": "{ISO timestamp}",
   "status": "running",
@@ -117,11 +117,12 @@ Create tmux session with layout:
 - Panes 1-N: Workers (bottom, side by side)
 
 ```bash
-# Create session
-tmux new-session -d -s speckit-orch -x 200 -y 50
+# Create session with project-specific name for isolation
+# PROJECT_NAME should be lowercase, e.g., "vidiwo", "civiclens"
+tmux new-session -d -s speckit-${PROJECT_NAME} -x 200 -y 50
 
 # Split for dashboard (top 40%)
-tmux split-window -v -p 60 -t speckit-orch
+tmux split-window -v -p 60 -t speckit-${PROJECT_NAME}
 
 # Split worker panes horizontally
 # For 4 workers, split pane 1 into 4 equal parts
@@ -147,7 +148,7 @@ The watchdog will:
 For each worker pane, start a Claude Code session with the worker agent:
 
 ```bash
-tmux send-keys -t speckit-orch:0.{pane} "claude --print '$(cat <<EOF
+tmux send-keys -t speckit-${PROJECT_NAME}:0.{pane} "claude --print '$(cat <<EOF
 You are Worker {N}.
 Read state file: .claude/orchestrator.state.json
 Find next pending feature and execute the speckit workflow.
@@ -169,8 +170,8 @@ Guide: {guide_path}
 Features: {total} total, {pending} pending
 Workers: {workers_count}
 
-Session: speckit-orch
-Dashboard: tmux attach -t speckit-orch
+Session: speckit-{project_name}
+Dashboard: tmux attach -t speckit-{project_name}
 
 Watchdog PID: {pid}
 State File: .claude/orchestrator.state.json

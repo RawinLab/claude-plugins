@@ -21,7 +21,9 @@ set -e
 STATE_FILE=".claude/orchestrator.state.json"
 DASHBOARD_FILE=".claude/dashboard.txt"
 CHECK_INTERVAL=10  # seconds
-TMUX_SESSION="speckit-orch"
+# Use project-specific tmux session name to isolate from other projects
+PROJECT_NAME=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+TMUX_SESSION="speckit-${PROJECT_NAME}"
 LOG_FILE=".claude/watchdog.log"
 
 # Colors for dashboard
