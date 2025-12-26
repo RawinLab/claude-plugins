@@ -121,9 +121,10 @@ is_pane_idle() {
             ;;
         claude)
             # Claude is running, check if it's waiting for input
-            # Look for the prompt character ">" at the end of pane content
-            local last_line=$(tmux capture-pane -t "$TMUX_SESSION:0.$pane" -p 2>/dev/null | grep -v "^$" | tail -1)
-            if echo "$last_line" | grep -qE "^>|❯|claude>"; then
+            # Look for ">" prompt (Claude uses non-breaking space after >)
+            local pane_content=$(tmux capture-pane -t "$TMUX_SESSION:0.$pane" -p 2>/dev/null | tail -10)
+            # Use grep with just ">" since space after might be non-breaking
+            if echo "$pane_content" | grep -qE "^>|>Try|>$"; then
                 return 0  # Claude waiting for input
             fi
             return 1  # Claude is working
