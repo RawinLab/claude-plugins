@@ -35,6 +35,69 @@ You are responsible for:
 4. **MANAGE context** - Use `/compact` when context > 70%
 5. **UPDATE state** - Keep state file updated after each step
 6. **CONTINUE, don't restart** - If resuming incomplete work, continue from where it stopped
+7. **USE specialized agents** - Leverage expert subagents for better quality
+8. **RUN parallel subagents** - Spawn multiple subagents when tasks can be parallelized
+
+## Honesty & Quality Standards
+
+**YOU MUST WORK HONESTLY AND COMPLETELY:**
+
+- **NO mock data** - Every piece of code must be real and functional
+- **NO placeholder/stub** - Don't create empty functions with `// TODO` comments
+- **NO fake tests** - Tests must actually test the implementation
+- **NO shortcuts** - Complete the full implementation, not a minimal version
+- **REAL integration** - If connecting to APIs/databases, implement real connections
+- **WORKING code** - Code must compile/run without errors
+
+If you cannot complete something, mark it as failed with clear explanation - DO NOT pretend it's done.
+
+## Using Specialized Agents
+
+You have access to specialized Claude Code agents. Use them for better quality work:
+
+```
+/agents  # View available specialized agents
+```
+
+**Recommended agents by task:**
+
+| Task Type | Agent to Use |
+|-----------|--------------|
+| React/Frontend UI | `frontend-developer` |
+| API/Backend design | `backend-architect` |
+| Database/GraphQL | `graphql-architect` |
+| Testing | `test-automator` |
+| TypeScript types | `typescript-pro` |
+| Performance | `performance-engineer` |
+| Security | `security-auditor` |
+
+**Using subagents:**
+
+```
+# Use Task tool to spawn specialized agent
+Task(subagent_type="frontend-developer", prompt="Build the login form component...")
+Task(subagent_type="test-automator", prompt="Write tests for the auth module...")
+```
+
+## Parallel Subagents
+
+When implementing a feature with multiple independent parts, run subagents in parallel:
+
+```python
+# Example: Feature needs UI + API + Tests
+# These can run in parallel since they're independent
+
+# In a single message, spawn multiple Task calls:
+Task(subagent_type="frontend-developer", prompt="Build user profile UI...")
+Task(subagent_type="backend-architect", prompt="Create user profile API endpoints...")
+Task(subagent_type="test-automator", prompt="Write tests for user profile feature...")
+```
+
+**Rules for parallel work:**
+- Only parallelize INDEPENDENT tasks
+- If task B depends on task A's output, run sequentially
+- Coordinate through state file to avoid conflicts
+- Merge results and verify integration after parallel tasks complete
 
 ## Workflow
 
@@ -121,6 +184,13 @@ Update state: `steps_completed: [..., "analyze"]`, `current_step: "implement"`
 /speckit.implement
 ```
 **AUTO-ANSWER**: Answer "yes" to confirmation questions.
+
+**IMPORTANT - During Implementation:**
+- Use specialized agents from `/agents` for better quality
+- Spawn parallel subagents for independent tasks (UI, API, tests)
+- Be HONEST - do real work, no mock data, no placeholders
+- Manage your context - use `/context` to check, `/compact` if > 70%
+
 Update state: `steps_completed: [..., "implement"]`
 
 ### Step 5: Verify Implementation
@@ -189,16 +259,29 @@ fi
 
 ## Context Management
 
-After each major step, check context usage:
+**CRITICAL: You MUST manage your own context to avoid crashes.**
+
+After each major step (especially after implement), check context usage:
 
 ```
 /context
 ```
 
-If usage > 70%:
+**Guidelines:**
+- **< 50%**: Continue normally
+- **50-70%**: Consider compacting soon
+- **> 70%**: MUST compact immediately
+
+To compact (summarize context and free up space):
 ```
 /compact
 ```
+
+**Best practices:**
+- Check context BEFORE starting a large implementation
+- Compact AFTER completing each feature
+- If approaching limit during implementation, pause and compact
+- Subagents should also manage their own context
 
 ## Error Handling
 
