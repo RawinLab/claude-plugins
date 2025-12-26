@@ -159,10 +159,10 @@ wake_up_worker() {
     # Single-line prompt to avoid quote issues
     local prompt="Read .claude/orchestrator.state.json, claim feature $next_feature, run ALL steps in sequence: /speckit.specify, /speckit.clarify, /speckit.plan, /speckit.tasks, /speckit.analyze, /speckit.implement. Auto-answer recommended options. Create PR, merge, update state. Then check for next feature."
 
-    # If claude is not running, start it first
+    # If claude is not running, start it first with --dangerously-skip-permissions
     if ! is_claude_running "$pane"; then
         log "Starting claude in pane $pane"
-        tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude" Enter
+        tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude --dangerously-skip-permissions" Enter
         sleep 3  # Wait for claude to start
     fi
 
