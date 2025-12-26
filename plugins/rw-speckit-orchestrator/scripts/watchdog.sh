@@ -59,6 +59,47 @@ check_all_complete() {
     return 1  # Not complete
 }
 
+# Check if a feature's dependencies are all completed
+check_dependencies_complete() {
+    local feature_id=$1
+    local deps=$(jq -r ".features.\"$feature_id\".dependencies[]?" "$STATE_FILE" 2>/dev/null)
+
+    if [ -z "$deps" ]; then
+        return 0  # No dependencies
+    fi
+
+    for dep in $deps; do
+        local dep_status=$(jq -r ".features.\"$dep\".status // \"pending\"" "$STATE_FILE" 2>/dev/null)
+        if [ "$dep_status" != "completed" ]; then
+            return 1  # Dependency not complete
+        fi
+    done
+    return 0  # All dependencies complete
+}
+
+# Get next pending feature that has all dependencies completed
+get_next_pending_feature() {
+    local features=$(jq -r '.features | to_entries | sort_by(.key) | .[].key' "$STATE_FILE" 2>/dev/null)
+
+    for feat in $features; do
+        local status=$(jq -r ".features.\"$feat\".status // \"pending\"" "$STATE_FILE" 2>/dev/null)
+
+        if [ "$status" == "pending" ]; then
+            if check_dependencies_complete "$feat"; then
+                echo "$feat"
+                return 0
+            fi
+        fi
+    done
+    return 1  # No pending feature with completed dependencies
+}
+
+# Check if there's work available (pending features with deps met)
+has_available_work() {
+    local next=$(get_next_pending_feature)
+    [ -n "$next" ]
+}
+
 # Simple check: is a tmux pane idle?
 is_pane_idle() {
     local pane=$1
@@ -81,16 +122,23 @@ is_pane_idle() {
     esac
 }
 
-# Wake up an idle worker by starting claude
+# Wake up an idle worker by starting claude with the worker skill
 wake_up_worker() {
     local pane=$1
-    local worker_id="W$pane"
+    local worker_id="worker-$pane"
 
-    log "Waking up worker $worker_id in pane $pane"
+    # Check if there's work available before waking
+    if ! has_available_work; then
+        log "No work available for $worker_id (all pending features blocked by dependencies)"
+        return 1
+    fi
 
-    # Send claude command to the pane
-    # The worker agent will read state file and decide what to do
-    tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude --print 'You are Speckit Worker $worker_id. Read .claude/orchestrator.state.json, find next pending feature (or continue in_progress one), execute speckit workflow, update state. Auto-answer clarify/analyze questions with recommended option. Verify implementation is complete before marking done. Exit when no more pending features.'" Enter
+    local next_feature=$(get_next_pending_feature)
+    log "Waking up $worker_id in pane $pane for feature $next_feature"
+
+    # Use the speckit worker agent via Task tool
+    # The worker agent handles all logic: claim feature, execute workflow, verify, update state
+    tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude --print 'Execute rw-speckit-orchestrator:speckit-worker agent. Worker ID: $worker_id. Read state file, claim next available feature, execute full speckit workflow, verify completion, update state. Continue until no more pending features.'" Enter
 }
 
 # Get number of workers from state file
@@ -128,9 +176,10 @@ render_dashboard() {
     local workers_status=""
     local worker_count=$(get_worker_count)
     for i in $(seq 1 $worker_count); do
-        local feature=$(jq -r ".workers.W$i.current_feature // \"-\"" "$STATE_FILE" 2>/dev/null)
-        local status=$(jq -r ".workers.W$i.status // \"idle\"" "$STATE_FILE" 2>/dev/null)
-        workers_status="${workers_status}  W$i: $feature ($status)\n"
+        local worker_id="worker-$i"
+        local feature=$(jq -r ".workers.\"$worker_id\".current_feature // \"-\"" "$STATE_FILE" 2>/dev/null)
+        local status=$(jq -r ".workers.\"$worker_id\".status // \"idle\"" "$STATE_FILE" 2>/dev/null)
+        workers_status="${workers_status}  $worker_id: $feature ($status)\n"
     done
 
     # Get recent completed features

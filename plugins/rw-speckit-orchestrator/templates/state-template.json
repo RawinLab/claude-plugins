@@ -19,10 +19,10 @@
   },
   "features": {},
   "workers": {
-    "W1": { "status": "idle", "current_feature": null },
-    "W2": { "status": "idle", "current_feature": null },
-    "W3": { "status": "idle", "current_feature": null },
-    "W4": { "status": "idle", "current_feature": null }
+    "worker-1": { "status": "idle", "current_feature": null, "last_activity": null },
+    "worker-2": { "status": "idle", "current_feature": null, "last_activity": null },
+    "worker-3": { "status": "idle", "current_feature": null, "last_activity": null },
+    "worker-4": { "status": "idle", "current_feature": null, "last_activity": null }
   },
   "logs": []
 }

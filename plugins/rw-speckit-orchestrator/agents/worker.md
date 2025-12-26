@@ -129,15 +129,16 @@ Update state file to claim the feature:
   "features": {
     "003": {
       "status": "in_progress",
-      "worker_id": "W1",
+      "worker_id": "worker-1",
       "started_at": "ISO timestamp",
       "current_step": "specify"
     }
   },
   "workers": {
-    "W1": {
+    "worker-1": {
       "status": "busy",
-      "current_feature": "003"
+      "current_feature": "003",
+      "last_activity": "ISO timestamp"
     }
   }
 }
@@ -232,9 +233,10 @@ Update state file:
     "in_progress": {decrement}
   },
   "workers": {
-    "W1": {
+    "worker-1": {
       "status": "idle",
-      "current_feature": null
+      "current_feature": null,
+      "last_activity": "ISO timestamp"
     }
   }
 }
