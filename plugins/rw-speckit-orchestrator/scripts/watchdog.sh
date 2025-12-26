@@ -122,7 +122,7 @@ is_pane_idle() {
     esac
 }
 
-# Wake up an idle worker by starting claude with the worker skill
+# Wake up an idle worker by starting claude with the worker agent
 wake_up_worker() {
     local pane=$1
     local worker_id="worker-$pane"
@@ -134,11 +134,39 @@ wake_up_worker() {
     fi
 
     local next_feature=$(get_next_pending_feature)
-    log "Waking up $worker_id in pane $pane for feature $next_feature"
+    local feature_name=$(jq -r ".features.\"$next_feature\".name // \"unknown\"" "$STATE_FILE" 2>/dev/null)
+    log "Waking up $worker_id in pane $pane for feature $next_feature: $feature_name"
 
-    # Use the speckit worker agent via Task tool
-    # The worker agent handles all logic: claim feature, execute workflow, verify, update state
-    tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude --print 'Execute rw-speckit-orchestrator:speckit-worker agent. Worker ID: $worker_id. Read state file, claim next available feature, execute full speckit workflow, verify completion, update state. Continue until no more pending features.'" Enter
+    # Start claude in interactive mode with a prompt file
+    # This approach lets the user see and approve the work
+    local prompt="You are Speckit Worker ($worker_id).
+
+TASK: Implement feature $next_feature ($feature_name)
+
+INSTRUCTIONS:
+1. Read .claude/orchestrator.state.json to understand current state
+2. Claim feature $next_feature by updating status to 'in_progress'
+3. Execute ALL 6 speckit steps IN SEQUENCE:
+   - /speckit.specify (use feature description from speckit-guide.md)
+   - /speckit.clarify (auto-answer: choose recommended options)
+   - /speckit.plan
+   - /speckit.tasks
+   - /speckit.analyze (auto-answer: choose recommended options)
+   - /speckit.implement (auto-answer: yes to confirmations)
+4. After all steps: verify, create PR, merge to main
+5. Update state file: mark feature completed
+6. Check for more pending features and continue
+
+CRITICAL: Do NOT stop between steps. Run all 6 steps automatically.
+
+Start now by reading the state file."
+
+    # Use claude in interactive mode
+    tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude" Enter
+    sleep 3  # Wait for claude to start
+
+    # Send the prompt
+    tmux send-keys -t "$TMUX_SESSION:0.$pane" "$prompt" Enter
 }
 
 # Get number of workers from state file
