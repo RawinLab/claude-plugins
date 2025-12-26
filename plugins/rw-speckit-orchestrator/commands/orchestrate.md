@@ -10,10 +10,6 @@ arguments:
     description: Resume from existing state file (true/false)
     required: false
     default: "false"
-  - name: parallel
-    description: Number of parallel workers for implement phase (default 3)
-    required: false
-    default: "3"
   - name: set-completed
     description: "Comma-separated list of feature IDs already completed (e.g., '001,002,003,004,005,006,007,008')"
     required: false
@@ -28,53 +24,31 @@ arguments:
 
 You are the main orchestrator for automated Spec-Kit workflow.
 
-## Architecture
+## CRITICAL: One Feature at a Time
+
+**Complete each feature ENTIRELY before moving to the next.**
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    ORCHESTRATOR (You)                        │
-│  1. Parse guide → 2. Create state → 3. Run phases            │
-└──────────────────────────────────────────────────────────────┘
-                              │
-    ┌─────────────────────────┼─────────────────────────────┐
-    │                         │                             │
-    ▼                         ▼                             ▼
-┌─────────┐             ┌─────────┐                   ┌─────────┐
-│Phase 1-4│             │Phase 1-4│                   │Phase 1-4│
-│SEQUENTIAL│            │SEQUENTIAL│                  │SEQUENTIAL│
-│Feature A│             │Feature B│                   │Feature C│
-└────┬────┘             └────┬────┘                   └────┬────┘
-     │                       │                             │
-     └───────────────────────┼─────────────────────────────┘
-                             │
-                    ┌────────┴────────┐
-                    │  Phase 5: IMPL  │
-                    │  (PARALLEL)     │
-                    └────────┬────────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         ▼                   ▼                   ▼
-    ┌─────────┐         ┌─────────┐         ┌─────────┐
-    │Worker A │         │Worker B │         │Worker C │
-    │Task tool│         │Task tool│         │Task tool│
-    └─────────┘         └─────────┘         └─────────┘
+Feature 001: specify → clarify → plan → analyze → implement → PR → merge ✓
+Feature 002: specify → clarify → plan → analyze → implement → PR → merge ✓
+Feature 003: specify → clarify → plan → analyze → implement → PR → merge ✓
+...
 ```
 
-## Workflow Phases
+**DO NOT:**
+- Run specify for all features first
+- Run clarify for all features
+- etc.
 
-| Phase | Steps | Mode |
-|-------|-------|------|
-| 1 | specify | Sequential (all features) |
-| 2 | clarify | Sequential (all features) |
-| 3 | plan | Sequential (all features) |
-| 4 | analyze | Sequential (all features) |
-| 5 | implement | **PARALLEL** (Task tool) |
+**DO:**
+- Pick ONE feature
+- Run ALL 5 speckit phases for that feature
+- Create PR, merge to main
+- THEN move to next feature
 
 ---
 
 ## Step 1: Initialize State
-
-Check if resuming or creating new state:
 
 ```bash
 mkdir -p .claude
@@ -89,13 +63,11 @@ If `${resume}` is "false" OR `.claude/orchestrator.state.json` doesn't exist:
 ### Handle Pre-completed Features
 
 If `${set-completed}` is provided (e.g., "001,002,003,004,005,006,007,008"):
-- Parse the comma-separated list
 - Mark each listed feature as "completed" with all phases done
-- Example: `--set-completed "001,002,003,004,005,006,007,008"` marks features 001-008 as done
 
 If `${start-from}` is provided (e.g., "009"):
 - Mark all features BEFORE this ID as "completed"
-- Example: `--start-from "009"` marks 001-008 as completed, starts from 009
+- Start from the specified feature
 
 ### State File Structure
 
@@ -107,11 +79,7 @@ Create `.claude/orchestrator.state.json`:
   "session_id": "speckit-{timestamp}",
   "started_at": "{ISO timestamp}",
   "status": "running",
-  "config": {
-    "guide_path": "${guide}",
-    "parallel_workers": ${parallel}
-  },
-  "current_phase": "specify",
+  "current_feature": null,
   "progress": {
     "total_features": 0,
     "completed": 0,
@@ -122,13 +90,8 @@ Create `.claude/orchestrator.state.json`:
     "001": {
       "name": "feature-name",
       "status": "pending",
-      "phase_status": {
-        "specify": "pending",
-        "clarify": "pending",
-        "plan": "pending",
-        "analyze": "pending",
-        "implement": "pending"
-      }
+      "current_phase": null,
+      "phases_completed": []
     }
   }
 }
@@ -136,160 +99,174 @@ Create `.claude/orchestrator.state.json`:
 
 ---
 
-## Step 2: Run Sequential Phases (1-4)
+## Step 2: Main Loop - Process Features One by One
 
-For each phase in order: `specify`, `clarify`, `plan`, `analyze`
+```
+WHILE there are pending features:
+    1. Get next pending feature (by ID order)
+    2. Set current_feature in state
+    3. Run ALL 5 phases for this feature
+    4. Create PR and merge
+    5. Mark feature as completed
+    6. Loop to next feature
+END WHILE
+```
 
-### 2.1 Update Current Phase
+### 2.1 Get Next Feature
 
-Update state: `current_phase: "{phase}"`
+Find the first feature with `status: "pending"` (ordered by feature ID).
 
-### 2.2 Process Each Feature Sequentially
+Update state:
+```json
+{
+  "current_feature": "009",
+  "features": {
+    "009": {
+      "status": "in_progress",
+      "current_phase": "specify"
+    }
+  }
+}
+```
 
-For each feature (in priority/dependency order):
-
-1. **Checkout feature branch**
-   ```bash
-   git checkout main && git pull
-   git checkout -b {feature_id}-{phase}-{feature_slug} 2>/dev/null || git checkout {feature_id}-{phase}-{feature_slug}
-   ```
-
-2. **Run the speckit command**
-   ```
-   /speckit.{phase}
-   ```
-   - For `clarify` and `analyze`: Auto-select recommended options
-   - Follow the prompts, complete the phase
-
-3. **Commit progress**
-   ```bash
-   git add -A
-   git commit -m "speckit({feature_id}): complete {phase} phase"
-   ```
-
-4. **Update state**
-   ```json
-   {
-     "features": {
-       "{feature_id}": {
-         "phase_status": {
-           "{phase}": "completed"
-         }
-       }
-     }
-   }
-   ```
-
-5. **Move to next feature**
-
-### 2.3 Phase Complete
-
-After all features complete current phase:
-- Update `current_phase` to next phase
-- Continue to next phase
-
----
-
-## Step 3: Run Parallel Implementation (Phase 5)
-
-When all features have completed phases 1-4:
-
-### 3.1 Merge All Prep Branches
+### 2.2 Create Feature Branch
 
 ```bash
 git checkout main
-# Merge all feature prep branches
-for feature in {feature_ids}; do
-  git merge --no-ff {feature}-specify-{slug} -m "Merge {feature} prep"
-done
-git push origin main
+git pull origin main
+git checkout -b feat/{feature_id}-{feature_slug}
 ```
 
-### 3.2 Spawn Parallel Workers
+### 2.3 Run All 5 Phases Sequentially
 
-Use Task tool to spawn parallel workers for implementation:
-
+**Phase 1: Specify**
 ```
-For each feature (up to ${parallel} at a time):
-  Task(
-    subagent_type: "speckit-worker",
-    prompt: "Implement feature {feature_id}: {feature_name}.
-             Read .claude/orchestrator.state.json for context.
-             Run /speckit.implement, then create PR and merge.",
-    run_in_background: true
-  )
+/speckit.specify
+```
+Update state: `phases_completed: ["specify"]`, `current_phase: "clarify"`
+
+**Phase 2: Clarify**
+```
+/speckit.clarify
+```
+- Auto-select **recommended** options
+Update state: `phases_completed: ["specify", "clarify"]`, `current_phase: "plan"`
+
+**Phase 3: Plan**
+```
+/speckit.plan
+```
+Update state: `phases_completed: ["specify", "clarify", "plan"]`, `current_phase: "analyze"`
+
+**Phase 4: Analyze**
+```
+/speckit.analyze
+```
+- Auto-select **recommended** options
+Update state: `phases_completed: ["specify", "clarify", "plan", "analyze"]`, `current_phase: "implement"`
+
+**Phase 5: Implement**
+```
+/speckit.implement
+```
+- Answer **yes** to confirmations
+- Use specialized agents for quality (frontend-developer, backend-architect, etc.)
+Update state: `phases_completed: ["specify", "clarify", "plan", "analyze", "implement"]`
+
+### 2.4 Verify Implementation
+
+Before PR, verify:
+```bash
+# TypeScript check
+npx tsc --noEmit 2>&1 | head -20
+
+# Build check
+npm run build 2>&1 | tail -20
+
+# Tests
+npm test 2>&1 | tail -30
 ```
 
-**IMPORTANT**:
-- Spawn up to `${parallel}` workers at once
-- When one finishes, spawn next pending feature
-- Continue until all features implemented
+If verification fails → Fix issues → Re-verify
 
-### 3.3 Monitor Workers
+### 2.5 Create PR and Merge
 
-Use TaskOutput to check worker progress:
+```bash
+# Commit
+git add -A
+git commit -m "feat({feature_id}): {feature_name}"
 
+# Push
+git push -u origin feat/{feature_id}-{feature_slug}
+
+# Create PR
+gh pr create --title "feat({feature_id}): {feature_name}" --body "Implements {feature_name}"
+
+# Merge
+gh pr merge --squash --delete-branch
+
+# Return to main
+git checkout main
+git pull origin main
 ```
-TaskOutput(task_id: "{worker_id}", block: false)
+
+### 2.6 Mark Feature Complete
+
+Update state:
+```json
+{
+  "current_feature": null,
+  "features": {
+    "009": {
+      "status": "completed",
+      "completed_at": "{timestamp}"
+    }
+  },
+  "progress": {
+    "completed": {+1},
+    "pending": {-1}
+  }
+}
 ```
 
-When a worker completes:
-1. Update state: `features.{id}.phase_status.implement = "completed"`
-2. Update progress counts
-3. Spawn next pending feature (if any)
+### 2.7 Continue to Next Feature
+
+Go back to Step 2.1 - get next pending feature.
 
 ---
 
-## Step 4: Completion
+## Step 3: Completion
 
-When all features are implemented:
+When no more pending features:
 
-1. Update state:
-   ```json
-   {
-     "status": "completed",
-     "completed_at": "{ISO timestamp}",
-     "progress": {
-       "completed": {total},
-       "pending": 0
-     }
-   }
-   ```
+```
+✅ Speckit Orchestration Complete!
+==================================
+Total Features: {N}
+Completed: {N}
+Duration: {time}
 
-2. Output summary:
-   ```
-   ✅ Speckit Orchestration Complete!
-   ==================================
-   Total Features: {N}
-   Completed: {N}
-   Duration: {time}
-
-   All features have been implemented and merged.
-   ```
+All features have been implemented and merged.
+```
 
 ---
 
 ## Error Handling
 
-If a phase fails for a feature:
+If a phase fails:
 1. Log error in state
-2. Mark feature as "failed"
-3. Continue with other features
-4. Report failures at end
-
----
-
-## Commands for Monitoring
-
-- `/orch-status` - Check current progress
-- `/orch-stop` - Stop orchestration
+2. Try to fix automatically (up to 3 retries)
+3. If still failing, mark feature as "failed"
+4. Continue to next feature
+5. Report failures at end
 
 ---
 
 ## CRITICAL RULES
 
-1. **Phases 1-4 are SEQUENTIAL** - One feature at a time, complete phase before next
-2. **Phase 5 is PARALLEL** - Use Task tool to spawn workers
-3. **AUTO-ANSWER** - Select recommended options, don't wait for user
-4. **STATE IS TRUTH** - Always update state file after each action
-5. **NO MOCKS** - All implementation must be real, working code
+1. **ONE FEATURE AT A TIME** - Complete ALL phases before moving to next
+2. **SEQUENTIAL PHASES** - specify → clarify → plan → analyze → implement
+3. **AUTO-ANSWER** - Select recommended options, answer yes to confirmations
+4. **MERGE BEFORE NEXT** - PR must be merged before starting next feature
+5. **STATE IS TRUTH** - Update state file after each phase
+6. **NO MOCKS** - All implementation must be real, working code
