@@ -21,7 +21,7 @@ Speckit Orchestrator Status
 Session: {session_id}
 Status: {running|stopped|complete}
 Started: {started_at}
-Duration: {elapsed time}
+Current Phase: {current_phase}
 
 Progress
 --------
@@ -33,16 +33,17 @@ Failed: {failed}
 
 Progress Bar: [{bar}] {percent}%
 
-Workers
--------
-W1: {feature_id} - {current_step} ({status})
-W2: {feature_id} - {current_step} ({status})
-W3: {feature_id} - {current_step} ({status})
-W4: {feature_id} - {current_step} ({status})
+Phase Status
+------------
+- specify:   {X/total} complete
+- clarify:   {X/total} complete
+- plan:      {X/total} complete
+- analyze:   {X/total} complete
+- implement: {X/total} complete
 
 Features In Progress
 --------------------
-- {feature_id}: {name} - Step: {current_step}
+- {feature_id}: {name} - Phase: {current_phase}
 
 Recently Completed
 ------------------
@@ -54,9 +55,8 @@ Failed Features
 
 Commands
 --------
-  tmux attach -t speckit-orch  # View live dashboard
-  /orch-stop                   # Stop orchestration
-  /orchestrate --resume        # Resume if stopped
+  /orch-stop              # Stop orchestration
+  /orchestrate --resume   # Resume if stopped
 ```
 
 ## If State File Not Found
@@ -65,5 +65,5 @@ Commands
 Orchestration not running.
 
 To start:
-  /orchestrate [--guide ./speckit-guide.md] [--workers 4]
+  /orchestrate [--guide ./speckit-guide.md] [--parallel 3]
 ```
