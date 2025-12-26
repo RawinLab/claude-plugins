@@ -102,7 +102,8 @@ has_available_work() {
     [ -n "$next" ]
 }
 
-# Simple check: is a tmux pane idle?
+# Check if a tmux pane needs work
+# Returns 0 if pane is idle (shell prompt) or claude is waiting for input
 is_pane_idle() {
     local pane=$1
 
@@ -111,20 +112,36 @@ is_pane_idle() {
         return 1  # Pane doesn't exist
     fi
 
-    # Check current command - if it's just bash/zsh, pane is idle
+    # Check current command
     local cmd=$(tmux list-panes -t "$TMUX_SESSION:0.$pane" -F '#{pane_current_command}' 2>/dev/null)
 
     case "$cmd" in
         bash|zsh|sh|fish)
-            return 0  # Idle
+            return 0  # Shell is idle, need to start claude
+            ;;
+        claude)
+            # Claude is running, check if it's waiting for input
+            # Look for the prompt character ">" at the end of pane content
+            local last_line=$(tmux capture-pane -t "$TMUX_SESSION:0.$pane" -p 2>/dev/null | grep -v "^$" | tail -1)
+            if echo "$last_line" | grep -qE "^>|❯|claude>"; then
+                return 0  # Claude waiting for input
+            fi
+            return 1  # Claude is working
             ;;
         *)
-            return 1  # Running something
+            return 1  # Something else running
             ;;
     esac
 }
 
-# Wake up an idle worker by starting claude with the worker agent
+# Check if claude is already running in pane
+is_claude_running() {
+    local pane=$1
+    local cmd=$(tmux list-panes -t "$TMUX_SESSION:0.$pane" -F '#{pane_current_command}' 2>/dev/null)
+    [ "$cmd" = "claude" ]
+}
+
+# Wake up an idle worker by sending work to claude
 wake_up_worker() {
     local pane=$1
     local worker_id="worker-$pane"
@@ -140,10 +157,18 @@ wake_up_worker() {
     log "Waking up $worker_id in pane $pane for feature $next_feature: $feature_name"
 
     # Single-line prompt to avoid quote issues
-    local prompt="You are Speckit Worker. Read .claude/orchestrator.state.json, claim feature $next_feature, then run ALL steps: /speckit.specify, /speckit.clarify, /speckit.plan, /speckit.tasks, /speckit.analyze, /speckit.implement. Auto-answer recommended options. Create PR, merge to main, update state. Continue to next feature or exit if done."
+    local prompt="Read .claude/orchestrator.state.json, claim feature $next_feature, run ALL steps in sequence: /speckit.specify, /speckit.clarify, /speckit.plan, /speckit.tasks, /speckit.analyze, /speckit.implement. Auto-answer recommended options. Create PR, merge, update state. Then check for next feature."
 
-    # Start claude with single-line prompt
-    tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude -p '$prompt'" Enter
+    # If claude is not running, start it first
+    if ! is_claude_running "$pane"; then
+        log "Starting claude in pane $pane"
+        tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude" Enter
+        sleep 3  # Wait for claude to start
+    fi
+
+    # Send the work prompt to claude
+    log "Sending work prompt to pane $pane"
+    tmux send-keys -t "$TMUX_SESSION:0.$pane" "$prompt" Enter
 }
 
 # Get number of workers from state file
