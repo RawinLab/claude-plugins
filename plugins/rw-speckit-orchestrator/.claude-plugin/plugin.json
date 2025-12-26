@@ -17,21 +17,21 @@
     "tmux"
   ],
   "commands": [
-    "../commands/setup-speckit.md",
-    "../commands/orchestrate.md",
-    "../commands/orch-status.md",
-    "../commands/orch-stop.md"
+    "./commands/setup-speckit.md",
+    "./commands/orchestrate.md",
+    "./commands/orch-status.md",
+    "./commands/orch-stop.md"
   ],
   "agents": [
-    "../agents/coordinator.md",
-    "../agents/worker.md"
+    "./agents/coordinator.md",
+    "./agents/worker.md"
   ],
   "skills": [
-    "../skills/guide-parser.md",
-    "../skills/state-manager.md"
+    "./skills/guide-parser.md",
+    "./skills/state-manager.md"
   ],
   "hooks": [
-    "../hooks/auto-answer.json",
-    "../hooks/progress-reporter.json"
+    "./hooks/auto-answer.json",
+    "./hooks/progress-reporter.json"
   ]
 }
