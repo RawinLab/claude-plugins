@@ -142,10 +142,24 @@ is_claude_running() {
     [ "$cmd" = "claude" ]
 }
 
+# Cooldown file to prevent rapid re-sending
+COOLDOWN_FILE="/tmp/speckit-watchdog-cooldown-$$"
+
 # Wake up an idle worker by sending work to claude
 wake_up_worker() {
     local pane=$1
     local worker_id="worker-$pane"
+
+    # Check cooldown - don't send if last send was within 30 seconds
+    if [ -f "$COOLDOWN_FILE" ]; then
+        local last_send=$(cat "$COOLDOWN_FILE" 2>/dev/null || echo "0")
+        local now=$(date +%s)
+        local diff=$((now - last_send))
+        if [ "$diff" -lt 30 ]; then
+            log "Cooldown active ($diff seconds since last send)"
+            return 1
+        fi
+    fi
 
     # Check if there's work available before waking
     if ! has_available_work; then
@@ -172,6 +186,10 @@ wake_up_worker() {
     tmux send-keys -t "$TMUX_SESSION:0.$pane" "$prompt"
     sleep 1  # Wait before sending Enter
     tmux send-keys -t "$TMUX_SESSION:0.$pane" Enter
+
+    # Update cooldown timestamp
+    date +%s > "$COOLDOWN_FILE"
+    log "Prompt sent, cooldown set for 30 seconds"
 }
 
 # Get number of workers from state file
