@@ -137,36 +137,30 @@ wake_up_worker() {
     local feature_name=$(jq -r ".features.\"$next_feature\".name // \"unknown\"" "$STATE_FILE" 2>/dev/null)
     log "Waking up $worker_id in pane $pane for feature $next_feature: $feature_name"
 
-    # Start claude in interactive mode with a prompt file
-    # This approach lets the user see and approve the work
-    local prompt="You are Speckit Worker ($worker_id).
+    # Write prompt to a file to avoid quote/newline issues with tmux send-keys
+    local prompt_file="/tmp/speckit-worker-${pane}.txt"
+    cat > "$prompt_file" << 'PROMPT_EOF'
+You are Speckit Worker. Execute ALL steps in sequence WITHOUT stopping:
 
-TASK: Implement feature $next_feature ($feature_name)
+1. Read .claude/orchestrator.state.json
+2. Claim the next pending feature (set status=in_progress)
+3. Run /speckit.specify with feature description from speckit-guide.md
+4. Run /speckit.clarify (choose recommended options)
+5. Run /speckit.plan
+6. Run /speckit.tasks
+7. Run /speckit.analyze (choose recommended options)
+8. Run /speckit.implement (answer yes to confirmations)
+9. Create PR and merge to main
+10. Update state file (set status=completed)
+11. Check for next pending feature - CONTINUE if more, exit if all done
 
-INSTRUCTIONS:
-1. Read .claude/orchestrator.state.json to understand current state
-2. Claim feature $next_feature by updating status to 'in_progress'
-3. Execute ALL 6 speckit steps IN SEQUENCE:
-   - /speckit.specify (use feature description from speckit-guide.md)
-   - /speckit.clarify (auto-answer: choose recommended options)
-   - /speckit.plan
-   - /speckit.tasks
-   - /speckit.analyze (auto-answer: choose recommended options)
-   - /speckit.implement (auto-answer: yes to confirmations)
-4. After all steps: verify, create PR, merge to main
-5. Update state file: mark feature completed
-6. Check for more pending features and continue
+CRITICAL: Do NOT wait between steps. Auto-continue through ALL steps.
 
-CRITICAL: Do NOT stop between steps. Run all 6 steps automatically.
+START NOW: Read the state file.
+PROMPT_EOF
 
-Start now by reading the state file."
-
-    # Use claude in interactive mode
-    tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude" Enter
-    sleep 3  # Wait for claude to start
-
-    # Send the prompt
-    tmux send-keys -t "$TMUX_SESSION:0.$pane" "$prompt" Enter
+    # Start claude with the prompt from file using proper escaping
+    tmux send-keys -t "$TMUX_SESSION:0.$pane" "claude -p \"\$(cat $prompt_file)\"" Enter
 }
 
 # Get number of workers from state file
