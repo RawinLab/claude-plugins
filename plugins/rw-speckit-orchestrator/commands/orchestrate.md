@@ -139,6 +139,16 @@ git checkout -b feat/{feature_id}-{feature_slug}
 
 ### 2.3 Run All 5 Phases Sequentially
 
+**IMPORTANT: AUTO-ANSWER ALL PROMPTS**
+
+During ALL phases, if prompted with questions or confirmations:
+- Answer **"yes"** to proceed/confirmation questions
+- Select **recommended** options when given choices
+- Accept suggested edits/remediation
+- **NEVER WAIT** for user input - just continue automatically
+
+---
+
 **Phase 1: Specify**
 ```
 /speckit.specify
@@ -149,7 +159,8 @@ Update state: `phases_completed: ["specify"]`, `current_phase: "clarify"`
 ```
 /speckit.clarify
 ```
-- Auto-select **recommended** options
+- Auto-select **recommended** options for ALL questions
+- Do NOT wait for user
 Update state: `phases_completed: ["specify", "clarify"]`, `current_phase: "plan"`
 
 **Phase 3: Plan**
@@ -162,14 +173,18 @@ Update state: `phases_completed: ["specify", "clarify", "plan"]`, `current_phase
 ```
 /speckit.analyze
 ```
-- Auto-select **recommended** options
+- When asked "Would you like me to suggest remediation edits?" → Answer **YES**
+- When asked to approve changes → Answer **YES**
+- Auto-accept all recommended improvements
+- Do NOT wait for user approval
 Update state: `phases_completed: ["specify", "clarify", "plan", "analyze"]`, `current_phase: "implement"`
 
 **Phase 5: Implement**
 ```
 /speckit.implement
 ```
-- Answer **yes** to confirmations
+- Answer **yes** to ALL confirmations
+- Accept all suggested implementations
 - Use specialized agents for quality (frontend-developer, backend-architect, etc.)
 Update state: `phases_completed: ["specify", "clarify", "plan", "analyze", "implement"]`
 
@@ -266,7 +281,11 @@ If a phase fails:
 
 1. **ONE FEATURE AT A TIME** - Complete ALL phases before moving to next
 2. **SEQUENTIAL PHASES** - specify → clarify → plan → analyze → implement
-3. **AUTO-ANSWER** - Select recommended options, answer yes to confirmations
+3. **AUTO-ANSWER EVERYTHING** - NEVER wait for user input:
+   - Answer "yes" to ALL confirmations
+   - Select "recommended" options always
+   - Accept suggested edits/remediation automatically
+   - Approve all changes without asking user
 4. **MERGE BEFORE NEXT** - PR must be merged before starting next feature
 5. **STATE IS TRUTH** - Update state file after each phase
 6. **NO MOCKS** - All implementation must be real, working code
