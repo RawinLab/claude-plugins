@@ -22,29 +22,51 @@ arguments:
 
 # Speckit Orchestrator
 
-You are the main orchestrator for automated Spec-Kit workflow.
+You are the main orchestrator for automated Spec-Kit workflow using Task Tool.
 
-## CRITICAL: One Feature at a Time
-
-**Complete each feature ENTIRELY before moving to the next.**
+## Architecture
 
 ```
-Feature 001: specify → clarify → plan → analyze → implement → PR → merge ✓
-Feature 002: specify → clarify → plan → analyze → implement → PR → merge ✓
-Feature 003: specify → clarify → plan → analyze → implement → PR → merge ✓
-...
+┌─────────────────────────────────────────────────────────────┐
+│                  MAIN ORCHESTRATOR (You)                    │
+│  - Parse guide, manage state                                │
+│  - Spawn Task workers for each feature                      │
+│  - Monitor progress, handle retries                         │
+│  - MANAGE CONTEXT: /context + /compact บ่อยๆ                │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           │ Task Tool (sequential)
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Worker Agent (speckit-worker)                              │
+│  Feature 009: specify → clarify → plan → analyze → implement│
+│  - Auto-answer ALL prompts                                  │
+│  - MANAGE CONTEXT: /context + /compact                      │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           │ Task Tool (can be parallel)
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Subagents (during implement phase)                         │
+│  - frontend-developer, backend-architect, etc.              │
+│  - MANAGE CONTEXT: /context + /compact                      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**DO NOT:**
-- Run specify for all features first
-- Run clarify for all features
-- etc.
+---
 
-**DO:**
-- Pick ONE feature
-- Run ALL 5 speckit phases for that feature
-- Create PR, merge to main
-- THEN move to next feature
+## CRITICAL: Context Management
+
+**คุณต้อง manage context ตลอดเวลา:**
+
+1. หลังจบแต่ละ feature → รัน `/compact`
+2. ก่อนเริ่ม feature ใหม่ → เช็ค `/context`
+3. ถ้า context > 60% → รัน `/compact` ทันที
+
+```
+/context   ← ตรวจสอบ context usage
+/compact   ← สรุปให้ context เล็กลง
+```
 
 ---
 
@@ -54,44 +76,42 @@ Feature 003: specify → clarify → plan → analyze → implement → PR → m
 mkdir -p .claude
 ```
 
-If `${resume}` is "false" OR `.claude/orchestrator.state.json` doesn't exist:
+### 1.1 Parse Guide
 
-1. Read `${guide}` to extract features
-2. Parse feature IDs, names, priorities, dependencies
-3. Create state file with all features as "pending"
+Read `${guide}` and extract all features:
+- Feature ID (e.g., "009")
+- Feature name
+- Dependencies (if any)
 
-### Handle Pre-completed Features
+### 1.2 Handle Pre-completed Features
 
-If `${set-completed}` is provided (e.g., "001,002,003,004,005,006,007,008"):
-- Mark each listed feature as "completed" with all phases done
+If `${set-completed}` is provided:
+- Mark each listed feature as "completed"
 
-If `${start-from}` is provided (e.g., "009"):
+If `${start-from}` is provided:
 - Mark all features BEFORE this ID as "completed"
-- Start from the specified feature
 
-### State File Structure
+### 1.3 Create/Update State File
 
-Create `.claude/orchestrator.state.json`:
+`.claude/orchestrator.state.json`:
 
 ```json
 {
-  "version": "2.0.0",
-  "session_id": "speckit-{timestamp}",
-  "started_at": "{ISO timestamp}",
+  "version": "3.0.0",
   "status": "running",
   "current_feature": null,
   "progress": {
-    "total_features": 0,
-    "completed": 0,
-    "in_progress": 0,
-    "pending": 0
+    "total": 15,
+    "completed": 8,
+    "failed": 0,
+    "pending": 7
   },
   "features": {
-    "001": {
-      "name": "feature-name",
+    "009": {
+      "name": "ai-image-generation",
       "status": "pending",
-      "current_phase": null,
-      "phases_completed": []
+      "retry_count": 0,
+      "error": null
     }
   }
 }
@@ -99,193 +119,145 @@ Create `.claude/orchestrator.state.json`:
 
 ---
 
-## Step 2: Main Loop - Process Features One by One
+## Step 2: Main Loop - Process Features
 
 ```
 WHILE there are pending features:
-    1. Get next pending feature (by ID order)
-    2. Set current_feature in state
-    3. Run ALL 5 phases for this feature
-    4. Create PR and merge
-    5. Mark feature as completed
-    6. Loop to next feature
+    1. Check context → /compact if needed
+    2. Get next pending feature
+    3. Spawn Task worker for this feature
+    4. Wait for completion (TaskOutput)
+    5. Handle result (success/failure/retry)
+    6. Update state
+    7. /compact after each feature
 END WHILE
 ```
 
 ### 2.1 Get Next Feature
 
-Find the first feature with `status: "pending"` (ordered by feature ID).
+```bash
+# Find first pending feature
+next_feature=$(jq -r '[.features | to_entries[] | select(.value.status == "pending")] | first | .key' .claude/orchestrator.state.json)
+```
 
-Update state:
+### 2.2 Spawn Worker with Task Tool
+
+**IMPORTANT: Use Task tool to spawn a worker agent**
+
+```
+Task(
+  subagent_type: "speckit-worker",
+  description: "Process feature {feature_id}",
+  prompt: "
+    You are a Speckit Worker. Process feature {feature_id}: {feature_name}
+
+    Project path: {current_directory}
+    State file: .claude/orchestrator.state.json
+
+    Run ALL 5 phases in sequence:
+    1. /speckit.specify
+    2. /speckit.clarify - AUTO-ANSWER ทุกคำถาม เลือก recommended
+    3. /speckit.plan
+    4. /speckit.analyze - AUTO-ANSWER ทุกคำถาม ตอบ YES ทุกข้อ
+    5. /speckit.implement
+
+    CRITICAL:
+    - AUTO-ANSWER ทุก prompt ไม่ต้องรอ user
+    - ตอบ 'yes' ทุก confirmation
+    - เลือก 'recommended' option เสมอ
+    - ทำงานจริง ไม่ mock data
+    - Manage context: /context ตรวจสอบ, /compact บ่อยๆ
+
+    After all phases complete:
+    - Create PR and merge
+    - Return success/failure status
+  "
+)
+```
+
+### 2.3 Wait for Worker Completion
+
+```
+result = TaskOutput(task_id: "{worker_task_id}", block: true)
+```
+
+### 2.4 Handle Result
+
+**If SUCCESS:**
 ```json
 {
-  "current_feature": "009",
   "features": {
-    "009": {
-      "status": "in_progress",
-      "current_phase": "specify"
-    }
-  }
-}
-```
-
-### 2.2 Create Feature Branch
-
-```bash
-git checkout main
-git pull origin main
-git checkout -b feat/{feature_id}-{feature_slug}
-```
-
-### 2.3 Run All 5 Phases Sequentially
-
-**IMPORTANT: AUTO-ANSWER ALL PROMPTS**
-
-During ALL phases, if prompted with questions or confirmations:
-- Answer **"yes"** to proceed/confirmation questions
-- Select **recommended** options when given choices
-- Accept suggested edits/remediation
-- **NEVER WAIT** for user input - just continue automatically
-
----
-
-**Phase 1: Specify**
-```
-/speckit.specify
-```
-Update state: `phases_completed: ["specify"]`, `current_phase: "clarify"`
-
-**Phase 2: Clarify**
-```
-/speckit.clarify
-```
-- Auto-select **recommended** options for ALL questions
-- Do NOT wait for user
-Update state: `phases_completed: ["specify", "clarify"]`, `current_phase: "plan"`
-
-**Phase 3: Plan**
-```
-/speckit.plan
-```
-Update state: `phases_completed: ["specify", "clarify", "plan"]`, `current_phase: "analyze"`
-
-**Phase 4: Analyze**
-```
-/speckit.analyze
-```
-- When asked "Would you like me to suggest remediation edits?" → Answer **YES**
-- When asked to approve changes → Answer **YES**
-- Auto-accept all recommended improvements
-- Do NOT wait for user approval
-Update state: `phases_completed: ["specify", "clarify", "plan", "analyze"]`, `current_phase: "implement"`
-
-**Phase 5: Implement**
-```
-/speckit.implement
-```
-- Answer **yes** to ALL confirmations
-- Accept all suggested implementations
-- Use specialized agents for quality (frontend-developer, backend-architect, etc.)
-Update state: `phases_completed: ["specify", "clarify", "plan", "analyze", "implement"]`
-
-### 2.4 Verify Implementation
-
-Before PR, verify:
-```bash
-# TypeScript check
-npx tsc --noEmit 2>&1 | head -20
-
-# Build check
-npm run build 2>&1 | tail -20
-
-# Tests
-npm test 2>&1 | tail -30
-```
-
-If verification fails → Fix issues → Re-verify
-
-### 2.5 Create PR and Merge
-
-```bash
-# Commit
-git add -A
-git commit -m "feat({feature_id}): {feature_name}"
-
-# Push
-git push -u origin feat/{feature_id}-{feature_slug}
-
-# Create PR
-gh pr create --title "feat({feature_id}): {feature_name}" --body "Implements {feature_name}"
-
-# Merge
-gh pr merge --squash --delete-branch
-
-# Return to main
-git checkout main
-git pull origin main
-```
-
-### 2.6 Mark Feature Complete
-
-Update state:
-```json
-{
-  "current_feature": null,
-  "features": {
-    "009": {
+    "{feature_id}": {
       "status": "completed",
       "completed_at": "{timestamp}"
     }
   },
-  "progress": {
-    "completed": {+1},
-    "pending": {-1}
-  }
+  "progress": { "completed": "+1", "pending": "-1" }
 }
 ```
 
-### 2.7 Continue to Next Feature
+**If FAILED:**
+```
+retry_count = state.features[feature_id].retry_count
 
-Go back to Step 2.1 - get next pending feature.
+if retry_count < 3:
+    # Retry with resume
+    Task(
+      resume: "{worker_task_id}",
+      prompt: "Previous attempt failed. Fix the error and continue."
+    )
+    retry_count += 1
+else:
+    # Mark as failed, move to next
+    state.features[feature_id].status = "failed"
+    state.progress.failed += 1
+```
+
+### 2.5 Compact After Each Feature
+
+```
+/compact
+```
+
+**ทำทุกครั้งหลังจบ feature เพื่อรักษา context**
 
 ---
 
 ## Step 3: Completion
 
-When no more pending features:
+When all features processed:
 
 ```
 ✅ Speckit Orchestration Complete!
 ==================================
-Total Features: {N}
-Completed: {N}
-Duration: {time}
+Total Features: {total}
+Completed: {completed}
+Failed: {failed}
 
-All features have been implemented and merged.
+{list of completed features}
+
+{list of failed features with errors}
 ```
 
 ---
 
 ## Error Handling
 
-If a phase fails:
-1. Log error in state
-2. Try to fix automatically (up to 3 retries)
-3. If still failing, mark feature as "failed"
-4. Continue to next feature
-5. Report failures at end
+| Error Type | Action |
+|------------|--------|
+| Worker timeout | Retry with resume (max 3) |
+| Phase failed | Retry from failed phase |
+| Max retries exceeded | Mark failed, continue to next |
+| Context overflow | /compact and retry |
 
 ---
 
 ## CRITICAL RULES
 
-1. **ONE FEATURE AT A TIME** - Complete ALL phases before moving to next
-2. **SEQUENTIAL PHASES** - specify → clarify → plan → analyze → implement
-3. **AUTO-ANSWER EVERYTHING** - NEVER wait for user input:
-   - Answer "yes" to ALL confirmations
-   - Select "recommended" options always
-   - Accept suggested edits/remediation automatically
-   - Approve all changes without asking user
-4. **MERGE BEFORE NEXT** - PR must be merged before starting next feature
-5. **STATE IS TRUTH** - Update state file after each phase
-6. **NO MOCKS** - All implementation must be real, working code
+1. **USE TASK TOOL** - Spawn worker for each feature via Task tool
+2. **ONE FEATURE AT A TIME** - Wait for worker to complete before next
+3. **AUTO-ANSWER** - Workers must auto-answer all prompts
+4. **RETRY ON FAILURE** - Up to 3 retries with resume
+5. **MANAGE CONTEXT** - /context + /compact บ่อยๆ ทั้ง orchestrator และ workers
+6. **STATE IS TRUTH** - Update state after every action
+7. **NO MOCKS** - All implementation must be real, working code

@@ -25,7 +25,7 @@
 | Plugin | Version | Description |
 |--------|---------|-------------|
 | [rw-telegram](./plugins/rw-telegram) | v1.0 | Bidirectional Telegram integration - notifications, questions, and remote control |
-| [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v2.1 | Automated Spec-Kit workflow orchestrator - one feature at a time, full automation |
+| [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v3.0 | Task Tool based Spec-Kit orchestrator - auto-answer, context management, retry |
 
 ---
 
@@ -52,34 +52,25 @@ Bidirectional Telegram integration for Claude Code:
 
 ### rw-speckit-orchestrator
 
-Automated workflow orchestrator for Spec-Kit driven development:
+Automated workflow orchestrator for Spec-Kit driven development using Task Tool:
 
-- **One Feature at a Time** - Complete each feature entirely before moving to next
-- **Full Automation** - Auto-answers all prompts, no user intervention needed
-- **Resume Support** - Stop and resume from saved state
-- **Skip Completed** - Start from any feature with `--start-from`
-- **No External Dependencies** - No tmux or watchdog scripts
+- **Task Tool Based** - Spawns worker agents for each feature
+- **Auto-Answer** - Workers auto-answer ALL prompts (YES/recommended)
+- **Context Management** - /context + /compact at every level
+- **Retry Support** - Failed workers can be resumed (max 3 times)
+- **One Feature at a Time** - Complete before moving to next
 
-**Workflow:**
+**Architecture:**
 ```
-Feature 001: specify → clarify → plan → analyze → implement → PR → merge ✓
-Feature 002: specify → clarify → plan → analyze → implement → PR → merge ✓
-...
+Orchestrator → Task Tool → Worker Agent → Subagents
+                              │
+                  specify → clarify → plan → analyze → implement
 ```
 
 **Commands:**
 ```bash
-# New project
-/setup-speckit
-/orchestrate
-
-# Skip to feature 009
 /orchestrate --start-from "009"
-
-# Check status
 /orch-status
-
-# Stop gracefully
 /orch-stop
 ```
 

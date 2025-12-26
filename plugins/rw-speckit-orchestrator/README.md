@@ -1,169 +1,155 @@
-# Speckit Orchestrator v2.1
+# Speckit Orchestrator v3.0
 
-Automated workflow orchestrator for Spec-Kit driven development. Run a single command to implement ALL features from your speckit-guide.md.
+Automated workflow orchestrator for Spec-Kit driven development using Task Tool.
 
 ## Features
 
-- **One Feature at a Time**: Complete each feature entirely before moving to next
-- **Full Automation**: Auto-answers all prompts, no user intervention needed
-- **Resume Support**: Stop and resume from saved state
-- **Skip Completed**: Start from any feature, skip already-done work
-- **No External Dependencies**: No tmux or watchdog scripts needed
+- **Task Tool Based**: Spawns worker agents via Task Tool for each feature
+- **Auto-Answer**: Workers auto-answer ALL prompts, no user intervention
+- **Context Management**: Automatic /context + /compact at every level
+- **Retry Support**: Failed workers can be resumed/retried (max 3 times)
+- **One Feature at a Time**: Complete each feature before moving to next
 
 ## Installation
 
 ```bash
-# Add to your Claude Code plugins
 claude plugins add rawinlab-plugins/rw-speckit-orchestrator
 ```
 
 ## Prerequisites
 
-### Install Spec-Kit CLI
-
 ```bash
-# Using uv (recommended)
+# Install Spec-Kit CLI
 uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
 
-# Verify installation
+# Verify
 specify --version
 ```
 
-### Other Requirements
-
-- Claude Code CLI
+Other requirements:
 - jq (for state file parsing)
 - gh CLI (for PR creation)
 
 ## Quick Start
 
-### New Project
-
 ```bash
-cd /path/to/your/project
-
-# 1. Create speckit-guide.md
+# New project
 /setup-speckit
-
-# 2. Initialize Spec-Kit
-specify init . --ai claude --force
-
-# 3. Create constitution
-/speckit.constitution
-
-# 4. Start orchestration
 /orchestrate
-```
 
-### Existing Project (Skip Completed Features)
-
-```bash
-# Start from feature 009 (skip 001-008)
+# Skip to feature 009
 /orchestrate --start-from "009"
 
-# Or specify which are done
-/orchestrate --set-completed "001,002,003,004,005,006,007,008"
-```
-
-### Resume
-
-```bash
+# Resume
 /orchestrate --resume true
 ```
 
-## Commands
+## Architecture
 
-### `/orchestrate`
-
-Start the orchestration workflow.
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--guide` | `./speckit-guide.md` | Path to speckit guide file |
-| `--resume` | `false` | Resume from existing state |
-| `--start-from` | - | Start from specific feature ID (e.g., "009") |
-| `--set-completed` | - | Mark features as done (e.g., "001,002,003") |
-
-**Examples:**
-
-```bash
-# Basic - start from beginning
-/orchestrate
-
-# Start from feature 009
-/orchestrate --start-from "009"
-
-# Resume interrupted work
-/orchestrate --resume true
 ```
-
-### `/orch-status`
-
-Check current orchestration status.
-
-### `/orch-stop`
-
-Stop orchestration gracefully (state is saved for resume).
+┌─────────────────────────────────────────────────────────────┐
+│                  MAIN ORCHESTRATOR                          │
+│  - Parse guide, manage state                                │
+│  - Spawn Task workers for each feature                      │
+│  - Handle retries, update progress                          │
+│  - MANAGE CONTEXT: /context + /compact                      │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           │ Task Tool
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Worker Agent (per feature)                                 │
+│  specify → clarify → plan → analyze → implement → PR        │
+│  - AUTO-ANSWER all prompts                                  │
+│  - MANAGE CONTEXT: /context + /compact                      │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           │ Task Tool (parallel possible)
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Subagents (during implement)                               │
+│  frontend-developer, backend-architect, etc.                │
+│  - MANAGE CONTEXT: /context + /compact                      │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Workflow
 
 **One feature at a time, all phases complete before next:**
 
 ```
-Feature 001: specify → clarify → plan → analyze → implement → PR → merge ✓
-Feature 002: specify → clarify → plan → analyze → implement → PR → merge ✓
-Feature 003: specify → clarify → plan → analyze → implement → PR → merge ✓
-...
+Feature 009:
+  1. /speckit.specify
+  2. /speckit.clarify  ← auto-answer recommended
+  3. /speckit.plan
+  4. /speckit.analyze  ← auto-answer YES
+  5. /speckit.implement ← can spawn subagents
+  6. Create PR → Merge
+  ✓ Done
+
+Feature 010:
+  ... (repeat)
 ```
 
-### Phases
+## Auto-Answer Behavior
 
-| Phase | Command | Auto-behavior |
-|-------|---------|---------------|
-| 1. Specify | `/speckit.specify` | Define feature spec |
-| 2. Clarify | `/speckit.clarify` | Auto-select recommended options |
-| 3. Plan | `/speckit.plan` | Create implementation plan |
-| 4. Analyze | `/speckit.analyze` | Auto-approve all suggested edits |
-| 5. Implement | `/speckit.implement` | Auto-confirm all prompts |
+Workers **never wait for user input**:
 
-### Auto-Answer Behavior
+| Prompt | Response |
+|--------|----------|
+| "Would you like to...?" | YES |
+| "Proceed?" | YES |
+| Multiple choice | Select **recommended** |
+| "Approve changes?" | YES |
 
-The orchestrator **never waits for user input**:
-- Answers "yes" to all confirmations
-- Selects "recommended" options always
-- Accepts suggested edits/remediation automatically
-- Approves all changes without asking
+## Context Management
 
-## Architecture
+**Every level manages its own context:**
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                     ORCHESTRATOR                           │
-│  /orchestrate --start-from "009"                          │
-└────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────────┐
-│  Feature 009                                               │
-│  ┌────────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌───────────┐  │
-│  │specify │→│clarify │→│ plan │→│analyze │→│ implement │  │
-│  └────────┘ └────────┘ └──────┘ └────────┘ └───────────┘  │
-│                                                    ↓       │
-│                                              PR → Merge    │
-└────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────────┐
-│  Feature 010                                               │
-│  ┌────────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌───────────┐  │
-│  │specify │→│clarify │→│ plan │→│analyze │→│ implement │  │
-│  └────────┘ └────────┘ └──────┘ └────────┘ └───────────┘  │
-│                                                    ↓       │
-│                                              PR → Merge    │
-└────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-                         ...
+Orchestrator:
+├── /context → check usage
+├── /compact → after each feature
+│
+└── Worker:
+    ├── /context → check after each phase
+    ├── /compact → if > 50%, always before implement
+    │
+    └── Subagents:
+        ├── /context → check regularly
+        └── /compact → if > 70%
+```
+
+## Commands
+
+### `/orchestrate`
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--guide` | `./speckit-guide.md` | Path to guide file |
+| `--resume` | `false` | Resume from state |
+| `--start-from` | - | Start from feature ID |
+| `--set-completed` | - | Mark features as done |
+
+### `/orch-status`
+
+Check current progress.
+
+### `/orch-stop`
+
+Stop gracefully (state saved).
+
+## Retry Mechanism
+
+```
+Worker fails
+    │
+    ▼
+retry_count < 3?
+    │
+    ├── YES → Resume worker with context
+    │
+    └── NO → Mark failed, continue to next feature
 ```
 
 ## State File
@@ -172,54 +158,53 @@ The orchestrator **never waits for user input**:
 
 ```json
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "status": "running",
   "current_feature": "009",
   "progress": {
-    "total_features": 15,
+    "total": 15,
     "completed": 8,
-    "in_progress": 1,
-    "pending": 6
+    "failed": 0,
+    "pending": 7
   },
   "features": {
     "009": {
       "name": "ai-image-generation",
       "status": "in_progress",
-      "current_phase": "implement",
-      "phases_completed": ["specify", "clarify", "plan", "analyze"]
+      "retry_count": 0
     }
   }
 }
 ```
 
-## Key Design Principles
+## Key Principles
 
-1. **One Feature at a Time**: Complete ALL phases before moving to next feature
-2. **Sequential Phases**: specify → clarify → plan → analyze → implement
-3. **Auto-Answer Everything**: Never wait for user input
-4. **Merge Before Next**: PR must be merged before starting next feature
-5. **State is Truth**: State file tracks all progress
-6. **No Mocks**: All implementation must be real, working code
+1. **Task Tool** - Spawn workers via Task, not direct execution
+2. **Auto-Answer** - Never wait for user, answer YES/recommended
+3. **Context Management** - /context + /compact at every level
+4. **Retry on Failure** - Resume failed workers up to 3 times
+5. **One at a Time** - Complete feature before next
+6. **No Mocks** - Real work only, no fake data
 
 ## Troubleshooting
 
-### Reset and start over
+### Reset
 
 ```bash
 rm .claude/orchestrator.state.json
 /orchestrate
 ```
 
-### Check feature status
+### Check status
 
 ```bash
 cat .claude/orchestrator.state.json | jq '.features["009"]'
 ```
 
-### Retry a feature
+### Retry feature
 
 ```bash
-jq '.features["009"].status = "pending" | .features["009"].phases_completed = []' \
+jq '.features["009"].status = "pending" | .features["009"].retry_count = 0' \
   .claude/orchestrator.state.json > tmp && mv tmp .claude/orchestrator.state.json
 ```
 

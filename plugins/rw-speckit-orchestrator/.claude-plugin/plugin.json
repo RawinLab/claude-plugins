@@ -1,7 +1,7 @@
 {
   "name": "rw-speckit-orchestrator",
-  "version": "2.0.0",
-  "description": "Automated workflow orchestrator for Spec-Kit driven development. Uses Claude's Task tool to manage parallel workers for implementing all features from speckit-guide.md.",
+  "version": "3.0.0",
+  "description": "Automated workflow orchestrator for Spec-Kit driven development. Uses Task Tool to spawn worker agents that auto-answer all prompts and manage context.",
   "author": {
     "name": "RawinLab",
     "url": "https://github.com/rawinlab"
