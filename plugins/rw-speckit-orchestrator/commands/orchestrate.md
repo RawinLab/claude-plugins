@@ -14,6 +14,14 @@ arguments:
     description: Number of parallel workers for implement phase (default 3)
     required: false
     default: "3"
+  - name: set-completed
+    description: "Comma-separated list of feature IDs already completed (e.g., '001,002,003,004,005,006,007,008')"
+    required: false
+    default: ""
+  - name: start-from
+    description: "Start from specific feature ID, skip all before it (e.g., '009')"
+    required: false
+    default: ""
 ---
 
 # Speckit Orchestrator
@@ -77,6 +85,17 @@ If `${resume}` is "false" OR `.claude/orchestrator.state.json` doesn't exist:
 1. Read `${guide}` to extract features
 2. Parse feature IDs, names, priorities, dependencies
 3. Create state file with all features as "pending"
+
+### Handle Pre-completed Features
+
+If `${set-completed}` is provided (e.g., "001,002,003,004,005,006,007,008"):
+- Parse the comma-separated list
+- Mark each listed feature as "completed" with all phases done
+- Example: `--set-completed "001,002,003,004,005,006,007,008"` marks features 001-008 as done
+
+If `${start-from}` is provided (e.g., "009"):
+- Mark all features BEFORE this ID as "completed"
+- Example: `--start-from "009"` marks 001-008 as completed, starts from 009
 
 ### State File Structure
 
