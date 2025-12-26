@@ -1,20 +1,20 @@
-# Speckit Orchestrator v2.0
+# Speckit Orchestrator v2.1
 
 Automated workflow orchestrator for Spec-Kit driven development. Run a single command to implement ALL features from your speckit-guide.md.
 
 ## Features
 
-- **Task Tool Based**: Uses Claude's native Task tool for parallel execution
-- **Phase-based Workflow**: Sequential phases (specify→clarify→plan→analyze) then parallel implementation
-- **Auto-Answer**: Automatically selects recommended options
+- **One Feature at a Time**: Complete each feature entirely before moving to next
+- **Full Automation**: Auto-answers all prompts, no user intervention needed
 - **Resume Support**: Stop and resume from saved state
+- **Skip Completed**: Start from any feature, skip already-done work
 - **No External Dependencies**: No tmux or watchdog scripts needed
 
 ## Installation
 
 ```bash
 # Add to your Claude Code plugins
-claude plugins add rawinlab-plugins/speckit-orchestrator
+claude plugins add rawinlab-plugins/rw-speckit-orchestrator
 ```
 
 ## Prerequisites
@@ -22,11 +22,8 @@ claude plugins add rawinlab-plugins/speckit-orchestrator
 ### Install Spec-Kit CLI
 
 ```bash
-# Option 1: Using uv (recommended)
+# Using uv (recommended)
 uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
-
-# Option 2: Using pip
-pip install specify-cli
 
 # Verify installation
 specify --version
@@ -40,39 +37,37 @@ specify --version
 
 ## Quick Start
 
-### Option 1: New Project (Full Setup)
+### New Project
 
 ```bash
-# 1. Navigate to your project
 cd /path/to/your/project
 
-# 2. Run setup wizard to create speckit-guide.md
+# 1. Create speckit-guide.md
 /setup-speckit
 
-# 3. Initialize Spec-Kit
+# 2. Initialize Spec-Kit
 specify init . --ai claude --force
 
-# 4. Create constitution (project principles)
+# 3. Create constitution
 /speckit.constitution
 
-# 5. Start orchestration to implement all features
+# 4. Start orchestration
 /orchestrate
 ```
 
-### Option 2: Existing Project
+### Existing Project (Skip Completed Features)
 
 ```bash
-# Navigate to your project with speckit-guide.md
-cd /path/to/your/project
+# Start from feature 009 (skip 001-008)
+/orchestrate --start-from "009"
 
-# Start orchestration with 3 parallel workers
-/orchestrate --parallel 3
+# Or specify which are done
+/orchestrate --set-completed "001,002,003,004,005,006,007,008"
 ```
 
-### Option 3: Resume
+### Resume
 
 ```bash
-# Resume from saved state
 /orchestrate --resume true
 ```
 
@@ -82,23 +77,23 @@ cd /path/to/your/project
 
 Start the orchestration workflow.
 
-**Arguments:**
 | Argument | Default | Description |
 |----------|---------|-------------|
 | `--guide` | `./speckit-guide.md` | Path to speckit guide file |
-| `--parallel` | `3` | Number of parallel workers for implement phase |
 | `--resume` | `false` | Resume from existing state |
+| `--start-from` | - | Start from specific feature ID (e.g., "009") |
+| `--set-completed` | - | Mark features as done (e.g., "001,002,003") |
 
 **Examples:**
 
 ```bash
-# Basic usage
+# Basic - start from beginning
 /orchestrate
 
-# Custom parallelism
-/orchestrate --parallel 5
+# Start from feature 009
+/orchestrate --start-from "009"
 
-# Resume
+# Resume interrupted work
 /orchestrate --resume true
 ```
 
@@ -106,82 +101,92 @@ Start the orchestration workflow.
 
 Check current orchestration status.
 
-```bash
-/orch-status
-```
-
 ### `/orch-stop`
 
 Stop orchestration gracefully (state is saved for resume).
 
-```bash
-/orch-stop
+## Workflow
+
+**One feature at a time, all phases complete before next:**
+
 ```
+Feature 001: specify → clarify → plan → analyze → implement → PR → merge ✓
+Feature 002: specify → clarify → plan → analyze → implement → PR → merge ✓
+Feature 003: specify → clarify → plan → analyze → implement → PR → merge ✓
+...
+```
+
+### Phases
+
+| Phase | Command | Auto-behavior |
+|-------|---------|---------------|
+| 1. Specify | `/speckit.specify` | Define feature spec |
+| 2. Clarify | `/speckit.clarify` | Auto-select recommended options |
+| 3. Plan | `/speckit.plan` | Create implementation plan |
+| 4. Analyze | `/speckit.analyze` | Auto-approve all suggested edits |
+| 5. Implement | `/speckit.implement` | Auto-confirm all prompts |
+
+### Auto-Answer Behavior
+
+The orchestrator **never waits for user input**:
+- Answers "yes" to all confirmations
+- Selects "recommended" options always
+- Accepts suggested edits/remediation automatically
+- Approves all changes without asking
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    ORCHESTRATOR                              │
-│  /orchestrate command - runs all phases                      │
-└──────────────────────────────────────────────────────────────┘
-                              │
-    ╔═════════════════════════╪═══════════════════════════════╗
-    ║  Phase 1-4: SEQUENTIAL (specify, clarify, plan, analyze) ║
-    ╠═════════════════════════╪═══════════════════════════════╣
-    ║  Feature A → Feature B → Feature C → ...                 ║
-    ╚═════════════════════════╪═══════════════════════════════╝
-                              │
-    ╔═════════════════════════╪═══════════════════════════════╗
-    ║  Phase 5: PARALLEL (implement via Task tool)             ║
-    ╠═════════════════════════╪═══════════════════════════════╣
-    ║  ┌─────────┐  ┌─────────┐  ┌─────────┐                  ║
-    ║  │Worker A │  │Worker B │  │Worker C │  ... (parallel)   ║
-    ║  └─────────┘  └─────────┘  └─────────┘                  ║
-    ╚═════════════════════════════════════════════════════════╝
+┌────────────────────────────────────────────────────────────┐
+│                     ORCHESTRATOR                           │
+│  /orchestrate --start-from "009"                          │
+└────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────────┐
+│  Feature 009                                               │
+│  ┌────────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌───────────┐  │
+│  │specify │→│clarify │→│ plan │→│analyze │→│ implement │  │
+│  └────────┘ └────────┘ └──────┘ └────────┘ └───────────┘  │
+│                                                    ↓       │
+│                                              PR → Merge    │
+└────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────────┐
+│  Feature 010                                               │
+│  ┌────────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌───────────┐  │
+│  │specify │→│clarify │→│ plan │→│analyze │→│ implement │  │
+│  └────────┘ └────────┘ └──────┘ └────────┘ └───────────┘  │
+│                                                    ↓       │
+│                                              PR → Merge    │
+└────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+                         ...
 ```
-
-## Workflow
-
-1. **Parse Guide**: Read speckit-guide.md, extract all features
-2. **Create State**: Initialize `.claude/orchestrator.state.json`
-3. **Sequential Phases** (for each feature):
-   - `/speckit.specify` - Define the feature
-   - `/speckit.clarify` - Answer questions (auto-select recommended)
-   - `/speckit.plan` - Create implementation plan
-   - `/speckit.analyze` - Analyze codebase
-4. **Parallel Implementation**:
-   - Spawn multiple Task agents
-   - Each runs `/speckit.implement` for one feature
-   - Create PR and merge
-5. **Complete**: All features implemented and merged
 
 ## State File
 
-All coordination happens through `.claude/orchestrator.state.json`:
+`.claude/orchestrator.state.json`:
 
 ```json
 {
   "version": "2.0.0",
   "status": "running",
-  "current_phase": "implement",
+  "current_feature": "009",
   "progress": {
-    "total_features": 20,
-    "completed": 12,
-    "in_progress": 3,
-    "pending": 5
+    "total_features": 15,
+    "completed": 8,
+    "in_progress": 1,
+    "pending": 6
   },
   "features": {
-    "001": {
-      "name": "channel-management",
-      "status": "completed",
-      "phase_status": {
-        "specify": "completed",
-        "clarify": "completed",
-        "plan": "completed",
-        "analyze": "completed",
-        "implement": "completed"
-      }
+    "009": {
+      "name": "ai-image-generation",
+      "status": "in_progress",
+      "current_phase": "implement",
+      "phases_completed": ["specify", "clarify", "plan", "analyze"]
     }
   }
 }
@@ -189,17 +194,17 @@ All coordination happens through `.claude/orchestrator.state.json`:
 
 ## Key Design Principles
 
-1. **Native Task Tool**: Uses Claude's built-in Task tool, no external scripts
-2. **Sequential then Parallel**: Prep work sequential, implementation parallel
-3. **State File is Truth**: Single source of coordination
-4. **Auto-Answer**: Select recommended options automatically
-5. **Verify Before Complete**: Workers verify their work is done
+1. **One Feature at a Time**: Complete ALL phases before moving to next feature
+2. **Sequential Phases**: specify → clarify → plan → analyze → implement
+3. **Auto-Answer Everything**: Never wait for user input
+4. **Merge Before Next**: PR must be merged before starting next feature
+5. **State is Truth**: State file tracks all progress
+6. **No Mocks**: All implementation must be real, working code
 
 ## Troubleshooting
 
-### State file issues
+### Reset and start over
 
-Reset state:
 ```bash
 rm .claude/orchestrator.state.json
 /orchestrate
@@ -208,14 +213,14 @@ rm .claude/orchestrator.state.json
 ### Check feature status
 
 ```bash
-cat .claude/orchestrator.state.json | jq '.features["003"]'
+cat .claude/orchestrator.state.json | jq '.features["009"]'
 ```
 
-### Manual retry
+### Retry a feature
 
 ```bash
-# Update state to mark as pending
-jq '.features["003"].phase_status.implement = "pending"' .claude/orchestrator.state.json > tmp && mv tmp .claude/orchestrator.state.json
+jq '.features["009"].status = "pending" | .features["009"].phases_completed = []' \
+  .claude/orchestrator.state.json > tmp && mv tmp .claude/orchestrator.state.json
 ```
 
 ## License
