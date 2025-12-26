@@ -205,7 +205,7 @@ render_dashboard() {
     # Get worker status
     local workers_status=""
     local worker_count=$(get_worker_count)
-    for i in $(seq 1 $worker_count); do
+    for i in $(seq 0 $((worker_count - 1))); do
         local worker_id="worker-$i"
         local feature=$(jq -r ".workers.\"$worker_id\".current_feature // \"-\"" "$STATE_FILE" 2>/dev/null)
         local status=$(jq -r ".workers.\"$worker_id\".status // \"idle\"" "$STATE_FILE" 2>/dev/null)
@@ -274,7 +274,8 @@ main_loop() {
         fi
 
         # 2. Check each worker pane - wake up if idle
-        for pane in $(seq 1 $worker_count); do
+        # Panes are 0-indexed, so check 0 to (worker_count - 1)
+        for pane in $(seq 0 $((worker_count - 1))); do
             if is_pane_idle "$pane"; then
                 wake_up_worker "$pane"
                 sleep 2  # Small delay between spawns
