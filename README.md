@@ -15,16 +15,17 @@
 
 # Install any plugin
 /plugin install rw-telegram
+/plugin install rw-speckit-orchestrator
 ```
 
 ---
 
 ## Available Plugins
 
-| Plugin | Description | Status |
-|--------|-------------|--------|
-| [rw-telegram](./plugins/rw-telegram) | Bidirectional Telegram integration - notifications, questions, and remote control | ✅ Stable |
-| [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | Automated workflow orchestrator for Spec-Kit driven development with parallel workers | ✅ Stable |
+| Plugin | Version | Description |
+|--------|---------|-------------|
+| [rw-telegram](./plugins/rw-telegram) | v1.0 | Bidirectional Telegram integration - notifications, questions, and remote control |
+| [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v2.1 | Automated Spec-Kit workflow orchestrator - one feature at a time, full automation |
 
 ---
 
@@ -40,24 +41,47 @@ Bidirectional Telegram integration for Claude Code:
 - **Project Context** - Automatically reads CLAUDE.md before executing tasks
 - **Auto-start Worker** - No manual setup required after configuration
 
+```bash
+# Setup
+/telegram-setup
+```
+
 [View Documentation](./plugins/rw-telegram/README.md)
+
+---
 
 ### rw-speckit-orchestrator
 
 Automated workflow orchestrator for Spec-Kit driven development:
 
-- **Parallel Workers** - Run multiple Claude Code agents simultaneously (1-8 workers)
-- **Real-time Dashboard** - Monitor progress via tmux
-- **Auto-Answer** - Automatically answer clarify/analyze questions with recommended options
-- **Guaranteed Completion** - Watchdog ensures all features are implemented
+- **One Feature at a Time** - Complete each feature entirely before moving to next
+- **Full Automation** - Auto-answers all prompts, no user intervention needed
 - **Resume Support** - Stop and resume from saved state
-- **Import Progress** - Start from existing manually-completed features
+- **Skip Completed** - Start from any feature with `--start-from`
+- **No External Dependencies** - No tmux or watchdog scripts
+
+**Workflow:**
+```
+Feature 001: specify → clarify → plan → analyze → implement → PR → merge ✓
+Feature 002: specify → clarify → plan → analyze → implement → PR → merge ✓
+...
+```
 
 **Commands:**
-- `/setup-speckit` - Interactive wizard to create speckit-guide.md
-- `/orchestrate` - Start parallel implementation of all features
-- `/orch-status` - Check orchestration progress
-- `/orch-stop` - Gracefully stop orchestration
+```bash
+# New project
+/setup-speckit
+/orchestrate
+
+# Skip to feature 009
+/orchestrate --start-from "009"
+
+# Check status
+/orch-status
+
+# Stop gracefully
+/orch-stop
+```
 
 [View Documentation](./plugins/rw-speckit-orchestrator/README.md)
 
@@ -65,12 +89,9 @@ Automated workflow orchestrator for Spec-Kit driven development:
 
 ## Configuration
 
-Each plugin has its own configuration. See individual plugin documentation for details.
-
-### rw-telegram Configuration
+### rw-telegram
 
 ```bash
-# Create config
 mkdir -p ~/.claude-telegram
 
 cat > ~/.claude-telegram/config.json << 'EOF'
@@ -85,28 +106,21 @@ EOF
 chmod 600 ~/.claude-telegram/config.json
 ```
 
-### rw-speckit-orchestrator Configuration
+### rw-speckit-orchestrator
 
-Requires [Spec-Kit CLI](https://github.com/github/spec-kit) to be installed:
+Requires [Spec-Kit CLI](https://github.com/github/spec-kit):
 
 ```bash
 # Install Spec-Kit CLI
 uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
 
-# Verify installation
+# Verify
 specify --version
 ```
 
 Other requirements:
-- tmux
 - jq (for state file parsing)
-
----
-
-## Upcoming Plugins
-
-- **rw-memory** - Enhanced session memory and context management
-- **rw-dashboard** - Web dashboard for monitoring Claude sessions
+- gh CLI (for PR creation)
 
 ---
 
