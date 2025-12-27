@@ -82,12 +82,47 @@ function parseClaudeAnalysis(hookResult) {
 }
 
 /**
+ * Extract clean output from transcript (last assistant message)
+ */
+function extractOutput(transcriptPath) {
+  if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(transcriptPath, 'utf8');
+    const lines = content.split('\n').filter(l => l.trim());
+
+    // Get last 10 lines, filter out JSON and system messages
+    const lastLines = lines.slice(-10);
+    const cleanLines = lastLines
+      .filter(line => {
+        const l = line.trim();
+        // Skip JSON objects
+        if (l.startsWith('{') || l.startsWith('[')) return false;
+        // Skip system messages
+        if (l.includes('tool_result') || l.includes('tool_use')) return false;
+        // Skip empty or very short lines
+        if (l.length < 5) return false;
+        return true;
+      })
+      .slice(-3); // Take last 3 clean lines
+
+    if (cleanLines.length === 0) return null;
+
+    return truncate(cleanLines.join(' ').replace(/\s+/g, ' '), 200);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fallback: Analyze transcript to determine notification type
  * Only used if Claude's analysis is not available
  */
 function analyzeTranscript(transcriptPath) {
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
-    return { type: 'stop', details: null };
+    return { type: 'stop', details: null, output: null };
   }
 
   try {
@@ -98,11 +133,14 @@ function analyzeTranscript(transcriptPath) {
     const recentLines = lines.slice(-15);
     const recentText = recentLines.join('\n').toLowerCase();
 
+    // Extract output
+    const output = extractOutput(transcriptPath);
+
     // Check for session limit - these are system messages, unlikely false positive
     if (recentText.includes('context limit') ||
         recentText.includes('token limit') ||
         recentText.includes('conversation too long')) {
-      return { type: 'limit', details: 'Context limit reached' };
+      return { type: 'limit', details: 'Context limit reached', output };
     }
 
     // For API errors - be more conservative, only match actual error responses
@@ -120,7 +158,7 @@ function analyzeTranscript(transcriptPath) {
       (recentText.includes('tool_result') || recentText.includes('error_code'));
 
     if (hasActualError) {
-      return { type: 'error', details: 'API error' };
+      return { type: 'error', details: 'API error', output };
     }
 
     // Check for review (read-only operations in tools used)
@@ -131,15 +169,13 @@ function analyzeTranscript(transcriptPath) {
     const hasWrite = writePatterns.some(p => recentText.includes(`tool.*${p}`));
 
     if (hasReadOnly && !hasWrite) {
-      return { type: 'review', details: 'Read-only analysis completed' };
+      return { type: 'review', details: 'Read-only analysis completed', output };
     }
 
-    // Extract last few lines for summary
-    const lastLines = lines.slice(-3).join('\n');
-    return { type: 'stop', details: truncate(lastLines, 200) };
+    return { type: 'stop', details: null, output };
 
   } catch {
-    return { type: 'stop', details: null };
+    return { type: 'stop', details: null, output: null };
   }
 }
 
@@ -174,6 +210,7 @@ async function main() {
     // Determine notification type and message
     let notifType = eventType;
     let details = null;
+    let output = null;
 
     // For stop events, try Claude's analysis first, then fallback
     if (eventType === 'stop') {
@@ -184,11 +221,15 @@ async function main() {
         // Use Claude's intelligent categorization
         notifType = claudeAnalysis.type;
         details = claudeAnalysis.details;
+        // Still extract output from transcript
+        const analysis = analyzeTranscript(input.transcript_path);
+        output = analysis.output;
       } else {
         // Fallback to transcript analysis
         const analysis = analyzeTranscript(input.transcript_path);
         notifType = analysis.type;
         details = analysis.details;
+        output = analysis.output;
       }
     }
 
@@ -205,7 +246,7 @@ async function main() {
           project: projectName,
           data: {
             summary: details,
-            cwd: input.cwd || 'unknown'
+            output: output
           }
         }),
         signal: AbortSignal.timeout(5000)

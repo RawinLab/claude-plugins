@@ -396,6 +396,9 @@ export function formatSummaryEvent(eventType, data = {}) {
   // Project
   parts.push(`📦 *Project:* ${project}`);
 
+  // Clean output text (if provided)
+  const cleanedOutput = cleanSummaryText(data.output);
+
   // Content based on event type
   switch (eventType) {
     case 'stop':
@@ -405,6 +408,9 @@ export function formatSummaryEvent(eventType, data = {}) {
       } else {
         parts.push(`📝 *Status:* Completed successfully`);
       }
+      if (cleanedOutput) {
+        parts.push(`📤 *Output:* ${cleanedOutput}`);
+      }
       break;
 
     case 'review':
@@ -413,6 +419,9 @@ export function formatSummaryEvent(eventType, data = {}) {
       } else {
         parts.push(`🔍 *Status:* Review completed`);
       }
+      if (cleanedOutput) {
+        parts.push(`📤 *Output:* ${cleanedOutput}`);
+      }
       break;
 
     case 'end':
@@ -420,6 +429,9 @@ export function formatSummaryEvent(eventType, data = {}) {
         parts.push(`📝 *Summary:* ${cleanedSummary}`);
       } else {
         parts.push(`📝 *Status:* Session ended`);
+      }
+      if (cleanedOutput) {
+        parts.push(`📤 *Output:* ${cleanedOutput}`);
       }
       break;
 
