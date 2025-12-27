@@ -68,27 +68,48 @@ export function truncateText(text, maxLength = 100) {
 
 /**
  * Clean summary text - remove JSON, clean up formatting
+ * Aggressively filters out internal metadata
  */
 function cleanSummaryText(text) {
   if (!text) return null;
 
   let cleaned = String(text).trim();
 
-  // Try to extract summary from JSON if present
+  // Skip if it's clearly internal metadata JSON
+  const internalFields = ['parentUuid', 'sessionId', 'isSidechain', 'userType', 'version'];
+  if (internalFields.some(field => cleaned.includes(`"${field}"`))) {
+    return null;
+  }
+
+  // Try to extract meaningful content from JSON if present
   try {
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
+
+      // Skip internal metadata objects
+      if (parsed.parentUuid || parsed.sessionId || parsed.isSidechain !== undefined) {
+        return null;
+      }
+
+      // Extract meaningful fields
       if (parsed.summary) {
         cleaned = parsed.summary;
       } else if (parsed.message) {
         cleaned = parsed.message;
       } else if (parsed.details) {
         cleaned = parsed.details;
+      } else if (parsed.description) {
+        cleaned = parsed.description;
+      } else if (parsed.result) {
+        cleaned = parsed.result;
+      } else {
+        // No meaningful content found
+        return null;
       }
     }
   } catch {
-    // Not JSON, continue with raw text
+    // Not valid JSON, continue with raw text
   }
 
   // Remove common noise patterns
@@ -100,8 +121,14 @@ function cleanSummaryText(text) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  // If still looks like JSON, return null
+  // If still looks like JSON or contains UUID patterns, return null
   if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+    return null;
+  }
+
+  // Filter out UUID-heavy strings
+  const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+  if ((cleaned.match(uuidPattern) || []).length > 1) {
     return null;
   }
 
@@ -174,11 +201,10 @@ function formatBashResult(result, maxLength = 150) {
  */
 export function formatToolEvent(toolName, input, result) {
   const emoji = getToolEmoji(toolName);
-  const timestamp = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+  const time = getShortTime();
 
   const lines = [];
   lines.push(`${emoji} ${toolName}`);
-  lines.push(`⏰ ${timestamp}`);
   lines.push('');
 
   switch (toolName) {
@@ -287,12 +313,11 @@ export function formatToolEvent(toolName, input, result) {
     }
 
     case 'AskUserQuestion': {
-      lines[0] = `❓ Question from Claude`;
-      lines[1] = `⏰ ${timestamp}`;
+      lines[0] = `❓ Question`;
       try {
         const parsed = typeof input === 'string' ? JSON.parse(input) : input;
         if (parsed.questions && parsed.questions[0]) {
-          lines.push(`Question: ${parsed.questions[0].question}`);
+          lines.push(parsed.questions[0].question);
           if (parsed.questions[0].options) {
             const opts = parsed.questions[0].options.map(o => o.label).join(', ');
             lines.push(`Options: ${opts}`);
@@ -309,65 +334,96 @@ export function formatToolEvent(toolName, input, result) {
       }
   }
 
+  // Add timestamp at the end
+  lines.push('');
+  lines.push(`⏰ ${time}`);
+
   return lines.join('\n');
 }
 
 /**
+ * Get short time string (HH:MM)
+ */
+function getShortTime() {
+  return new Date().toLocaleTimeString('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+/**
+ * Get event type label
+ */
+function getEventLabel(eventType) {
+  const labels = {
+    stop: 'Task Complete',
+    done: 'Task Complete',
+    end: 'Session Ended',
+    error: 'Error',
+    question: 'Question',
+    plan_ready: 'Plan Ready',
+    review: 'Review Complete',
+    limit: 'Context Limit',
+    feature_complete: 'Feature Complete',
+    tests_passed: 'Tests Passed',
+    tests_failed: 'Tests Failed'
+  };
+  return labels[eventType] || 'Update';
+}
+
+/**
  * Format a summary event (for summary mode)
+ * New minimal format: ✅ project | Event Type\n\nsummary\n\n⏰ HH:MM
  */
 export function formatSummaryEvent(eventType, data = {}) {
   const project = data.project || 'Claude Code';
-  const timestamp = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+  const time = getShortTime();
+  const emoji = getStatusEmoji(eventType);
+  const label = getEventLabel(eventType);
 
   // Clean the summary text
   const cleanedSummary = cleanSummaryText(data.summary);
 
-  // Build message parts
+  // Build message parts - minimal format
   const parts = [];
 
+  // Header line: emoji project | label
+  parts.push(`${emoji} ${project} | ${label}`);
+
+  // Summary content based on event type
   switch (eventType) {
     case 'stop':
     case 'done':
-      parts.push(`✅ *${project}*`);
-      parts.push('');
-      parts.push('*Task Complete*');
+    case 'review':
+    case 'end':
       if (cleanedSummary) {
         parts.push('');
-        parts.push(`📝 ${cleanedSummary}`);
+        parts.push(cleanedSummary);
       }
       break;
 
     case 'feature_complete':
-      parts.push(`🎯 *${project}*`);
-      parts.push('');
-      parts.push(`*Feature Complete*: ${data.featureId || ''}`);
-      if (data.filesChanged) {
-        parts.push(`📁 ${data.filesChanged} files changed`);
-      }
-      if (data.testsResult) {
-        parts.push(data.testsResult);
+      if (data.featureId) {
+        parts.push('');
+        parts.push(`Feature: ${data.featureId}`);
       }
       if (cleanedSummary) {
         parts.push('');
-        parts.push(`📝 ${cleanedSummary}`);
+        parts.push(cleanedSummary);
       }
       break;
 
     case 'error':
-      parts.push(`❌ *${project}*`);
-      parts.push('');
-      parts.push('*Error Occurred*');
       if (data.error) {
         const cleanError = cleanSummaryText(data.error) || truncateText(data.error, 200);
         parts.push('');
-        parts.push(`⚠️ ${cleanError}`);
+        parts.push(cleanError);
       }
       break;
 
     case 'question':
-      parts.push(`❓ *${project}*`);
-      parts.push('');
-      parts.push('*Question from Claude*');
       if (data.question) {
         parts.push('');
         parts.push(data.question);
@@ -375,83 +431,43 @@ export function formatSummaryEvent(eventType, data = {}) {
       break;
 
     case 'plan_ready':
-      parts.push(`📋 *${project}*`);
-      parts.push('');
-      parts.push('*Plan Ready*');
       parts.push('');
       parts.push('Claude has a plan ready for your approval');
       break;
 
-    case 'review':
-      parts.push(`🔍 *${project}*`);
-      parts.push('');
-      parts.push('*Review Complete*');
-      if (cleanedSummary) {
-        parts.push('');
-        parts.push(`📝 ${cleanedSummary}`);
-      }
-      break;
-
     case 'limit':
-      parts.push(`⏱️ *${project}*`);
-      parts.push('');
-      parts.push('*Context Limit Reached*');
       parts.push('');
       parts.push('Session needs to be compacted or restarted');
       break;
 
-    case 'end':
-      parts.push(`🏁 *${project}*`);
-      parts.push('');
-      parts.push('*Session Ended*');
-      if (cleanedSummary) {
-        parts.push('');
-        parts.push(`📝 ${cleanedSummary}`);
-      }
-      break;
-
     case 'tests_passed':
-      parts.push(`✅ *${project}*`);
-      parts.push('');
-      parts.push('*All Tests Passed*');
       if (data.count) {
-        parts.push(`🧪 ${data.count} tests`);
+        parts.push('');
+        parts.push(`${data.count} tests passed`);
       }
       break;
 
     case 'tests_failed':
-      parts.push(`❌ *${project}*`);
-      parts.push('');
-      parts.push('*Tests Failed*');
       if (data.count) {
-        parts.push(`🧪 ${data.count} failed`);
+        parts.push('');
+        parts.push(`${data.count} tests failed`);
       }
       if (cleanedSummary) {
         parts.push('');
-        parts.push(`⚠️ ${cleanedSummary}`);
+        parts.push(cleanedSummary);
       }
       break;
 
     default:
-      parts.push(`ℹ️ *${project}*`);
       if (cleanedSummary) {
         parts.push('');
         parts.push(cleanedSummary);
       }
   }
 
-  // Add location
-  if (data.cwd) {
-    // Show only last 2 parts of path
-    const cwdParts = data.cwd.split('/');
-    const shortPath = cwdParts.slice(-2).join('/');
-    parts.push('');
-    parts.push(`📂 ${shortPath}`);
-  }
-
-  // Add timestamp
+  // Footer: timestamp only
   parts.push('');
-  parts.push(`_${timestamp}_`);
+  parts.push(`⏰ ${time}`);
 
   return parts.join('\n');
 }
