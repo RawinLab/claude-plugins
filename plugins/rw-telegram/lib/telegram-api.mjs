@@ -81,24 +81,14 @@ export async function sendMessage(token, chatId, text, options = {}) {
   const chunks = chunkText(text);
   let lastMessage;
 
-  // Remove markdown formatting symbols for plain text
-  const plainText = text
-    .replace(/\*([^*]+)\*/g, '$1')  // Remove *bold*
-    .replace(/_([^_]+)_/g, '$1')    // Remove _italic_
-    .replace(/`([^`]+)`/g, '$1');   // Remove `code`
-
-  const plainChunks = chunkText(plainText);
-
-  for (const chunk of plainChunks) {
+  for (const chunk of chunks) {
     const payload = {
       chat_id: chatId,
       text: chunk,
+      parse_mode: 'Markdown',
       disable_web_page_preview: true,
       ...options
     };
-
-    // Don't set parse_mode for plain text
-    delete payload.parseMode;
 
     lastMessage = await telegramRequest(token, 'sendMessage', payload);
   }

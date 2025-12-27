@@ -375,7 +375,7 @@ function getEventLabel(eventType) {
 
 /**
  * Format a summary event (for summary mode)
- * New minimal format: ✅ project | Event Type\n\nsummary\n\n⏰ HH:MM
+ * Beautiful Markdown format with title, project, description
  */
 export function formatSummaryEvent(eventType, data = {}) {
   const project = data.project || 'Claude Code';
@@ -386,87 +386,105 @@ export function formatSummaryEvent(eventType, data = {}) {
   // Clean the summary text
   const cleanedSummary = cleanSummaryText(data.summary);
 
-  // Build message parts - minimal format
+  // Build message parts with Markdown
   const parts = [];
 
-  // Header line: emoji project | label
-  parts.push(`${emoji} ${project} | ${label}`);
+  // Title with emoji
+  parts.push(`${emoji} *${label}*`);
+  parts.push('━━━━━━━━━━━━━━━━');
 
-  // Summary content based on event type
+  // Project
+  parts.push(`📦 *Project:* ${project}`);
+
+  // Content based on event type
   switch (eventType) {
     case 'stop':
     case 'done':
+      if (cleanedSummary) {
+        parts.push(`📝 *Summary:* ${cleanedSummary}`);
+      } else {
+        parts.push(`📝 *Status:* Completed successfully`);
+      }
+      break;
+
     case 'review':
+      if (cleanedSummary) {
+        parts.push(`🔍 *Review:* ${cleanedSummary}`);
+      } else {
+        parts.push(`🔍 *Status:* Review completed`);
+      }
+      break;
+
     case 'end':
       if (cleanedSummary) {
-        parts.push('');
-        parts.push(cleanedSummary);
+        parts.push(`📝 *Summary:* ${cleanedSummary}`);
+      } else {
+        parts.push(`📝 *Status:* Session ended`);
       }
       break;
 
     case 'feature_complete':
       if (data.featureId) {
-        parts.push('');
-        parts.push(`Feature: ${data.featureId}`);
+        parts.push(`🎯 *Feature:* \`${data.featureId}\``);
       }
       if (cleanedSummary) {
-        parts.push('');
-        parts.push(cleanedSummary);
+        parts.push(`📝 *Summary:* ${cleanedSummary}`);
       }
       break;
 
     case 'error':
       if (data.error) {
         const cleanError = cleanSummaryText(data.error) || truncateText(data.error, 200);
-        parts.push('');
-        parts.push(cleanError);
+        parts.push(`⚠️ *Error:* ${cleanError}`);
+      } else {
+        parts.push(`⚠️ *Error:* An error occurred`);
       }
       break;
 
     case 'question':
       if (data.question) {
-        parts.push('');
-        parts.push(data.question);
+        parts.push(`❓ *Question:* ${data.question}`);
+      }
+      if (data.options) {
+        parts.push(`📋 *Options:* ${data.options}`);
       }
       break;
 
     case 'plan_ready':
-      parts.push('');
-      parts.push('Claude has a plan ready for your approval');
+      parts.push(`📋 *Status:* Plan ready for approval`);
+      parts.push(`💡 *Action:* Review and approve the plan`);
       break;
 
     case 'limit':
-      parts.push('');
-      parts.push('Session needs to be compacted or restarted');
+      parts.push(`⚠️ *Issue:* Context limit reached`);
+      parts.push(`💡 *Action:* Compact or restart session`);
       break;
 
     case 'tests_passed':
+      parts.push(`🧪 *Tests:* All passed`);
       if (data.count) {
-        parts.push('');
-        parts.push(`${data.count} tests passed`);
+        parts.push(`📊 *Count:* ${data.count} tests`);
       }
       break;
 
     case 'tests_failed':
+      parts.push(`🧪 *Tests:* Failed`);
       if (data.count) {
-        parts.push('');
-        parts.push(`${data.count} tests failed`);
+        parts.push(`📊 *Failed:* ${data.count} tests`);
       }
       if (cleanedSummary) {
-        parts.push('');
-        parts.push(cleanedSummary);
+        parts.push(`⚠️ *Details:* ${cleanedSummary}`);
       }
       break;
 
     default:
       if (cleanedSummary) {
-        parts.push('');
-        parts.push(cleanedSummary);
+        parts.push(`📝 *Info:* ${cleanedSummary}`);
       }
   }
 
-  // Footer: timestamp only
-  parts.push('');
+  // Footer with timestamp
+  parts.push('━━━━━━━━━━━━━━━━');
   parts.push(`⏰ ${time}`);
 
   return parts.join('\n');
