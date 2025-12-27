@@ -121,17 +121,32 @@ If `${start-from}` is provided:
 
 ## Step 2: Main Loop - Process Features
 
+⚠️ **CRITICAL: SEQUENTIAL EXECUTION ONLY** ⚠️
+
+**ห้าม spawn หลาย Task พร้อมกัน! ต้องทำทีละ feature เท่านั้น!**
+
 ```
-WHILE there are pending features:
+FOR EACH feature IN pending_features (ONE BY ONE):
     1. Check context → /compact if needed
-    2. Get next pending feature
-    3. Spawn Task worker for this feature
-    4. Wait for completion (TaskOutput)
+    2. Get SINGLE next pending feature
+    3. Spawn ONE Task worker for this feature
+    4. WAIT for completion (TaskOutput with block=true) ← MUST WAIT!
     5. Handle result (success/failure/retry)
-    6. Update state
+    6. Update state file
     7. /compact after each feature
-END WHILE
+    8. THEN move to next feature ← ไม่ใช่ parallel!
+END FOR
 ```
+
+**DO NOT:**
+- ❌ Spawn multiple Task tools in one message
+- ❌ Run features 001, 002, 003 at the same time
+- ❌ Use run_in_background: true
+
+**DO:**
+- ✅ Process ONE feature completely before starting next
+- ✅ Wait for TaskOutput before spawning next Task
+- ✅ Sequential: 001 → (wait) → 002 → (wait) → 003
 
 ### 2.1 Get Next Feature
 
@@ -142,12 +157,16 @@ next_feature=$(jq -r '[.features | to_entries[] | select(.value.status == "pendi
 
 ### 2.2 Spawn Worker with Task Tool
 
-**IMPORTANT: Use Task tool to spawn a worker agent**
+**⚠️ IMPORTANT: Spawn ONLY ONE Task at a time!**
+
+After this Task completes, you may spawn the next one. NOT before!
 
 ```
+// Spawn SINGLE worker - DO NOT spawn multiple!
 Task(
   subagent_type: "speckit-worker",
   description: "Process feature {feature_id}",
+  run_in_background: false,  // MUST be false!
   prompt: "
     You are a Speckit Worker. Process feature {feature_id}: {feature_name}
 
@@ -254,10 +273,22 @@ Failed: {failed}
 
 ## CRITICAL RULES
 
-1. **USE TASK TOOL** - Spawn worker for each feature via Task tool
-2. **ONE FEATURE AT A TIME** - Wait for worker to complete before next
-3. **AUTO-ANSWER** - Workers must auto-answer all prompts
-4. **RETRY ON FAILURE** - Up to 3 retries with resume
-5. **MANAGE CONTEXT** - /context + /compact บ่อยๆ ทั้ง orchestrator และ workers
-6. **STATE IS TRUTH** - Update state after every action
-7. **NO MOCKS** - All implementation must be real, working code
+1. **🚨 SEQUENTIAL ONLY** - ทำทีละ feature เท่านั้น! ห้าม parallel!
+2. **USE TASK TOOL** - Spawn worker for each feature via Task tool
+3. **ONE FEATURE AT A TIME** - Wait for TaskOutput BEFORE spawning next Task
+4. **NEVER BATCH** - ห้าม spawn Task หลายตัวในข้อความเดียว
+5. **AUTO-ANSWER** - Workers must auto-answer all prompts
+6. **RETRY ON FAILURE** - Up to 3 retries with resume
+7. **MANAGE CONTEXT** - /context + /compact บ่อยๆ ทั้ง orchestrator และ workers
+8. **STATE IS TRUTH** - Update state after every action
+9. **NO MOCKS** - All implementation must be real, working code
+
+## ⚠️ ANTI-PATTERN: ห้ามทำแบบนี้!
+
+```
+❌ WRONG - Multiple Tasks in one message:
+Task(feature 001) + Task(feature 002) + Task(feature 003)
+
+✅ CORRECT - One Task, wait, then next:
+Task(feature 001) → TaskOutput(wait) → Task(feature 002) → TaskOutput(wait) → ...
+```
