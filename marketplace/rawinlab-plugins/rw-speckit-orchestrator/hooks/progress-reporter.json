@@ -1,0 +1,12 @@
+{
+  "name": "speckit-progress-reporter",
+  "description": "Reports progress updates to state file when speckit steps complete",
+  "event": "PostToolUse",
+  "disabled": false,
+  "hooks": [
+    {
+      "type": "prompt",
+      "prompt": "If the tool output indicates a speckit step completed (specify, clarify, plan, tasks, analyze, or implement), update the state file at .claude/orchestrator.state.json to reflect progress. Add the completed step to steps_completed array and update current_step. Return 'UPDATED' if state was updated, 'SKIP' otherwise."
+    }
+  ]
+}

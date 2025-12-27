@@ -1,0 +1,36 @@
+{
+  "name": "rw-speckit-orchestrator",
+  "version": "3.1.0",
+  "description": "Automated workflow orchestrator for Spec-Kit driven development. Uses Task Tool to spawn worker agents with full testing pipeline: implement → verify → write tests → run tests → smoke test → PR.",
+  "author": {
+    "name": "RawinLab",
+    "url": "https://github.com/rawinlab"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/RawinLab/claude-plugins",
+  "keywords": [
+    "speckit",
+    "orchestrator",
+    "workflow",
+    "automation",
+    "parallel",
+    "task-tool"
+  ],
+  "commands": [
+    "./commands/setup-speckit.md",
+    "./commands/orchestrate.md",
+    "./commands/orch-status.md",
+    "./commands/orch-stop.md"
+  ],
+  "agents": [
+    "./agents/worker.md"
+  ],
+  "skills": [
+    "./skills/guide-parser.md",
+    "./skills/state-manager.md"
+  ],
+  "hooks": [
+    "./hooks/auto-answer.json",
+    "./hooks/progress-reporter.json"
+  ]
+}

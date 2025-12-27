@@ -67,6 +67,48 @@ export function truncateText(text, maxLength = 100) {
 }
 
 /**
+ * Clean summary text - remove JSON, clean up formatting
+ */
+function cleanSummaryText(text) {
+  if (!text) return null;
+
+  let cleaned = String(text).trim();
+
+  // Try to extract summary from JSON if present
+  try {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.summary) {
+        cleaned = parsed.summary;
+      } else if (parsed.message) {
+        cleaned = parsed.message;
+      } else if (parsed.details) {
+        cleaned = parsed.details;
+      }
+    }
+  } catch {
+    // Not JSON, continue with raw text
+  }
+
+  // Remove common noise patterns
+  cleaned = cleaned
+    .replace(/\{"category":\s*"[^"]+",?\s*"summary":\s*"/g, '')
+    .replace(/"\s*\}$/g, '')
+    .replace(/\\n/g, '\n')
+    .replace(/\\"/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // If still looks like JSON, return null
+  if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+    return null;
+  }
+
+  return cleaned || null;
+}
+
+/**
  * Extract command from Bash tool input
  */
 function extractBashCommand(input) {
@@ -216,91 +258,144 @@ export function formatToolEvent(toolName, input, result) {
  * Format a summary event (for summary mode)
  */
 export function formatSummaryEvent(eventType, data = {}) {
-  const emoji = getStatusEmoji(eventType);
   const project = data.project || 'Claude Code';
   const timestamp = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
 
-  let message = `${emoji} *${project}*\n`;
+  // Clean the summary text
+  const cleanedSummary = cleanSummaryText(data.summary);
+
+  // Build message parts
+  const parts = [];
 
   switch (eventType) {
     case 'stop':
     case 'done':
-      message += '\n✅ Task Complete';
-      if (data.summary) {
-        message += `\n\n${data.summary}`;
+      parts.push(`✅ *${project}*`);
+      parts.push('');
+      parts.push('*Task Complete*');
+      if (cleanedSummary) {
+        parts.push('');
+        parts.push(`📝 ${cleanedSummary}`);
       }
       break;
 
     case 'feature_complete':
-      message += `\n🎯 Feature Complete: ${data.featureId || 'unknown'}`;
+      parts.push(`🎯 *${project}*`);
+      parts.push('');
+      parts.push(`*Feature Complete*: ${data.featureId || ''}`);
       if (data.filesChanged) {
-        message += `\n📁 ${data.filesChanged} files changed`;
+        parts.push(`📁 ${data.filesChanged} files changed`);
       }
       if (data.testsResult) {
-        message += `\n${data.testsResult}`;
+        parts.push(data.testsResult);
+      }
+      if (cleanedSummary) {
+        parts.push('');
+        parts.push(`📝 ${cleanedSummary}`);
       }
       break;
 
     case 'error':
-      message += '\n❌ Error Occurred';
+      parts.push(`❌ *${project}*`);
+      parts.push('');
+      parts.push('*Error Occurred*');
       if (data.error) {
-        message += `\n\n\`\`\`\n${truncateText(data.error, 200)}\n\`\`\``;
+        const cleanError = cleanSummaryText(data.error) || truncateText(data.error, 200);
+        parts.push('');
+        parts.push(`⚠️ ${cleanError}`);
       }
       break;
 
     case 'question':
-      message += '\n❓ Question from Claude';
+      parts.push(`❓ *${project}*`);
+      parts.push('');
+      parts.push('*Question from Claude*');
       if (data.question) {
-        message += `\n\n${data.question}`;
+        parts.push('');
+        parts.push(data.question);
       }
       break;
 
     case 'plan_ready':
-      message += '\n📋 Plan Ready for Approval';
+      parts.push(`📋 *${project}*`);
+      parts.push('');
+      parts.push('*Plan Ready*');
+      parts.push('');
+      parts.push('Claude has a plan ready for your approval');
       break;
 
     case 'review':
-      message += '\n🔍 Review Complete';
-      if (data.summary) {
-        message += `\n\n${data.summary}`;
+      parts.push(`🔍 *${project}*`);
+      parts.push('');
+      parts.push('*Review Complete*');
+      if (cleanedSummary) {
+        parts.push('');
+        parts.push(`📝 ${cleanedSummary}`);
       }
       break;
 
     case 'limit':
-      message += '\n⏱️ Context Limit Reached';
+      parts.push(`⏱️ *${project}*`);
+      parts.push('');
+      parts.push('*Context Limit Reached*');
+      parts.push('');
+      parts.push('Session needs to be compacted or restarted');
       break;
 
     case 'end':
-      message += '\n🏁 Session Ended';
+      parts.push(`🏁 *${project}*`);
+      parts.push('');
+      parts.push('*Session Ended*');
+      if (cleanedSummary) {
+        parts.push('');
+        parts.push(`📝 ${cleanedSummary}`);
+      }
       break;
 
     case 'tests_passed':
-      message += '\n✅ All Tests Passed';
+      parts.push(`✅ *${project}*`);
+      parts.push('');
+      parts.push('*All Tests Passed*');
       if (data.count) {
-        message += ` (${data.count} tests)`;
+        parts.push(`🧪 ${data.count} tests`);
       }
       break;
 
     case 'tests_failed':
-      message += '\n❌ Tests Failed';
+      parts.push(`❌ *${project}*`);
+      parts.push('');
+      parts.push('*Tests Failed*');
       if (data.count) {
-        message += ` (${data.count} failed)`;
+        parts.push(`🧪 ${data.count} failed`);
+      }
+      if (cleanedSummary) {
+        parts.push('');
+        parts.push(`⚠️ ${cleanedSummary}`);
       }
       break;
 
     default:
-      if (data.summary) {
-        message += `\n\n${data.summary}`;
+      parts.push(`ℹ️ *${project}*`);
+      if (cleanedSummary) {
+        parts.push('');
+        parts.push(cleanedSummary);
       }
   }
 
+  // Add location
   if (data.cwd) {
-    message += `\n\n📂 \`${data.cwd}\``;
+    // Show only last 2 parts of path
+    const cwdParts = data.cwd.split('/');
+    const shortPath = cwdParts.slice(-2).join('/');
+    parts.push('');
+    parts.push(`📂 ${shortPath}`);
   }
 
-  message += `\n\n_${timestamp}_`;
+  // Add timestamp
+  parts.push('');
+  parts.push(`_${timestamp}_`);
 
-  return message;
+  return parts.join('\n');
 }
 
 /**
