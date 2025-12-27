@@ -1,7 +1,7 @@
 {
   "name": "rw-speckit-orchestrator",
-  "version": "3.0.0",
-  "description": "Automated workflow orchestrator for Spec-Kit driven development. Uses Task Tool to spawn worker agents that auto-answer all prompts and manage context.",
+  "version": "3.1.0",
+  "description": "Automated workflow orchestrator for Spec-Kit driven development. Uses Task Tool to spawn worker agents with full testing pipeline: implement → verify → write tests → run tests → smoke test → PR.",
   "author": {
     "name": "RawinLab",
     "url": "https://github.com/rawinlab"

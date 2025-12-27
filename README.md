@@ -25,7 +25,7 @@
 | Plugin | Version | Description |
 |--------|---------|-------------|
 | [rw-telegram](./plugins/rw-telegram) | v1.0 | Bidirectional Telegram integration - notifications, questions, and remote control |
-| [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v3.0 | Task Tool based Spec-Kit orchestrator - auto-answer, context management, retry |
+| [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v3.1 | Task Tool based Spec-Kit orchestrator with full testing pipeline |
 
 ---
 

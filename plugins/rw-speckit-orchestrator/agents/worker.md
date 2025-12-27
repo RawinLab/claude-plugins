@@ -161,7 +161,7 @@ git checkout -b feat/{feature_id}-{feature_slug}
 
 ## Step 4: Verify Implementation
 
-Before creating PR:
+**ตรวจสอบว่า implementation เสร็จสมบูรณ์:**
 
 ```bash
 # TypeScript check
@@ -170,18 +170,112 @@ npx tsc --noEmit 2>&1 | head -20
 # Build check
 npm run build 2>&1 | tail -20
 
-# Tests
-npm test 2>&1 | tail -30
-
-# No TODOs
+# No TODOs in new code
 git diff main --name-only | xargs grep -l "TODO\|FIXME" 2>/dev/null || echo "Clean"
 ```
 
-**If verification fails:** Fix issues and re-verify
+**If verification fails:**
+1. กลับไปแก้ไขใน implement
+2. รัน verify อีกครั้ง
+3. ทำซ้ำจนกว่าจะผ่าน
+
+**After verification passes:** Continue to Write Tests
 
 ---
 
-## Step 5: Create PR and Merge
+## Step 5: Write Tests
+
+**เขียน test cases สำหรับ feature ที่ implement:**
+
+ใช้ specialized agent สำหรับเขียน tests:
+
+```
+Task(
+  subagent_type: "unit-testing:test-automator",
+  description: "Write tests for {feature_name}",
+  prompt: "
+    Write comprehensive tests for the implementation of {feature_name}.
+
+    Requirements:
+    - Unit tests for new functions/components
+    - Integration tests if applicable
+    - Cover edge cases
+    - Use existing test framework in the project
+
+    CRITICAL:
+    - ทำงานจริง ไม่ mock data
+    - Manage context: /context + /compact
+    - AUTO-ANSWER ทุก prompt
+  "
+)
+```
+
+**หรือถ้าไม่มี agent:** Worker เขียน tests เอง
+
+**After tests written:** Continue to Run Tests
+
+---
+
+## Step 6: Run Tests
+
+**รัน tests และแก้ไขจนกว่าจะผ่าน (max 3 retries):**
+
+```bash
+# Run all tests
+npm test 2>&1 | tail -50
+```
+
+**Test Loop:**
+
+```
+retry_count = 0
+max_retries = 3
+
+WHILE tests fail AND retry_count < max_retries:
+    1. วิเคราะห์ error
+    2. แก้ไข code หรือ test
+    3. รัน tests อีกครั้ง
+    4. retry_count += 1
+END WHILE
+
+IF tests still fail after max_retries:
+    → Mark feature as FAILED
+    → Report error to orchestrator
+ELSE:
+    → Continue to Smoke Test
+```
+
+---
+
+## Step 7: Smoke Test (Optional)
+
+**ทดสอบว่า app รันได้และ endpoint ทำงาน:**
+
+```bash
+# Start app in background
+npm run dev &
+APP_PID=$!
+sleep 5
+
+# Test basic endpoint
+curl -s http://localhost:3000/health || curl -s http://localhost:3000/api/health
+
+# Stop app
+kill $APP_PID 2>/dev/null
+```
+
+**หรือใช้วิธีอื่นตาม project:**
+- `npm start` แล้ว test
+- Docker compose up แล้ว test
+- ตรวจสอบว่า build artifact ทำงานได้
+
+**ถ้า smoke test ทำไม่ได้:** ข้ามไปได้ (optional)
+
+**After smoke test:** Continue to PR
+
+---
+
+## Step 8: Create PR and Merge
 
 ```bash
 # Commit
@@ -189,14 +283,24 @@ git add -A
 git commit -m "feat({feature_id}): {feature_name}
 
 Implements {feature_name} as specified in speckit-guide.md.
+- Implementation complete
+- Tests written and passing
+- Smoke test verified (if applicable)
 
-🤖 Generated with Speckit Orchestrator"
+🤖 Generated with Speckit Orchestrator v3.1"
 
 # Push
 git push -u origin feat/{feature_id}-{feature_slug}
 
 # Create PR
-gh pr create --title "feat({feature_id}): {feature_name}" --body "Implements {feature_name}"
+gh pr create --title "feat({feature_id}): {feature_name}" --body "Implements {feature_name}
+
+## Changes
+- Implementation as per speckit plan
+- Unit/integration tests added
+- Build and type checks passing
+
+🤖 Generated with Speckit Orchestrator"
 
 # Merge
 gh pr merge --squash --delete-branch
@@ -208,7 +312,7 @@ git pull origin main
 
 ---
 
-## Step 6: Report Result
+## Step 9: Report Result
 
 **Return to orchestrator:**
 
@@ -239,6 +343,13 @@ Phase: {which phase failed}
 1. **AUTO-ANSWER** - ตอบ YES/recommended ทุก prompt ไม่รอ user
 2. **MANAGE CONTEXT** - /context + /compact บ่อยๆ โดยเฉพาะก่อน implement
 3. **NO MOCKS** - ทำงานจริง ไม่ mock data
-4. **COMPLETE ALL PHASES** - ต้องผ่านทั้ง 5 phases
-5. **PR AND MERGE** - สร้าง PR และ merge ก่อน report
-6. **SUBAGENT CONTEXT** - Subagents ต้อง manage context เอง
+4. **COMPLETE ALL PHASES** - ต้องผ่านทั้ง 9 steps:
+   - Steps 1-3: Setup (context, branch, phases)
+   - Step 4: Verify (build, types, no TODO)
+   - Step 5: Write Tests (ใช้ agent หรือเขียนเอง)
+   - Step 6: Run Tests (max 3 retries)
+   - Step 7: Smoke Test (optional)
+   - Steps 8-9: PR, Merge, Report
+5. **TESTS MUST PASS** - ถ้า test fail เกิน 3 ครั้ง → feature failed
+6. **PR AND MERGE** - สร้าง PR และ merge ก่อน report
+7. **SUBAGENT CONTEXT** - Subagents ต้อง manage context เอง

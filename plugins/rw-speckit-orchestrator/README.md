@@ -1,4 +1,4 @@
-# Speckit Orchestrator v3.0
+# Speckit Orchestrator v3.1
 
 Automated workflow orchestrator for Spec-Kit driven development using Task Tool.
 
@@ -7,6 +7,7 @@ Automated workflow orchestrator for Spec-Kit driven development using Task Tool.
 - **Task Tool Based**: Spawns worker agents via Task Tool for each feature
 - **Auto-Answer**: Workers auto-answer ALL prompts, no user intervention
 - **Context Management**: Automatic /context + /compact at every level
+- **Full Testing Pipeline**: Verify → Write Tests → Run Tests → Smoke Test
 - **Retry Support**: Failed workers can be resumed/retried (max 3 times)
 - **One Feature at a Time**: Complete each feature before moving to next
 
@@ -79,12 +80,26 @@ Other requirements:
 
 ```
 Feature 009:
-  1. /speckit.specify
-  2. /speckit.clarify  ← auto-answer recommended
-  3. /speckit.plan
-  4. /speckit.analyze  ← auto-answer YES
-  5. /speckit.implement ← can spawn subagents
-  6. Create PR → Merge
+  ┌─ SPECKIT PHASES ─────────────────────────┐
+  │ 1. /speckit.specify                      │
+  │ 2. /speckit.clarify  ← auto-answer       │
+  │ 3. /speckit.plan                         │
+  │ 4. /speckit.analyze  ← auto-answer YES   │
+  │ 5. /speckit.implement ← spawn subagents  │
+  └──────────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─ TESTING PIPELINE ───────────────────────┐
+  │ 6. Verify (build, tsc, no TODO)          │
+  │ 7. Write Tests (use test-automator)      │
+  │ 8. Run Tests (max 3 retries if fail)     │
+  │ 9. Smoke Test (optional - run app)       │
+  └──────────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─ FINALIZE ───────────────────────────────┐
+  │ 10. Create PR → Merge                    │
+  └──────────────────────────────────────────┘
   ✓ Done
 
 Feature 010:
@@ -182,9 +197,11 @@ retry_count < 3?
 1. **Task Tool** - Spawn workers via Task, not direct execution
 2. **Auto-Answer** - Never wait for user, answer YES/recommended
 3. **Context Management** - /context + /compact at every level
-4. **Retry on Failure** - Resume failed workers up to 3 times
-5. **One at a Time** - Complete feature before next
-6. **No Mocks** - Real work only, no fake data
+4. **Testing Pipeline** - Verify → Write Tests → Run Tests → Smoke Test
+5. **Tests Must Pass** - Max 3 retries, then mark failed
+6. **Retry on Failure** - Resume failed workers up to 3 times
+7. **One at a Time** - Complete feature before next
+8. **No Mocks** - Real work only, no fake data
 
 ## Troubleshooting
 
