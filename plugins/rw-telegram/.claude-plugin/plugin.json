@@ -1,7 +1,7 @@
 {
   "name": "rw-telegram",
-  "version": "1.0.0",
-  "description": "Bidirectional Telegram communication for Claude Code - notifications, questions, and remote control",
+  "version": "1.1.0",
+  "description": "Bidirectional Telegram communication for Claude Code - notifications with verbose/summary modes, questions, and remote control",
   "author": {
     "name": "RawinLab",
     "url": "https://github.com/rawinlab"

@@ -24,7 +24,7 @@
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| [rw-telegram](./plugins/rw-telegram) | v1.0 | Bidirectional Telegram integration - notifications, questions, and remote control |
+| [rw-telegram](./plugins/rw-telegram) | v1.1 | Bidirectional Telegram with verbose/summary modes, questions, remote control |
 | [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v3.1 | Task Tool based Spec-Kit orchestrator with full testing pipeline |
 
 ---
@@ -36,6 +36,7 @@
 Bidirectional Telegram integration for Claude Code:
 
 - **Smart Notifications** - Get notified when Claude completes tasks, needs input, or encounters errors
+- **Verbose/Summary Modes** - Toggle between all events or important only
 - **Remote Control** - Send prompts to Claude directly from Telegram
 - **Question Forwarding** - Answer Claude's questions from your phone
 - **Project Context** - Automatically reads CLAUDE.md before executing tasks
@@ -44,6 +45,10 @@ Bidirectional Telegram integration for Claude Code:
 ```bash
 # Setup
 /telegram-setup
+
+# Toggle notification mode
+/telegram-verbose on    # All events (formatted nicely)
+/telegram-verbose off   # Important only (default)
 ```
 
 [View Documentation](./plugins/rw-telegram/README.md)

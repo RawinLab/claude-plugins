@@ -195,28 +195,18 @@ async function main() {
     // Get notification config
     const notifConfig = NOTIFICATION_TYPES[notifType] || NOTIFICATION_TYPES.stop;
 
-    // Build message
-    let message = `${notifConfig.emoji} *${notifConfig.title}*\n\n`;
-    message += `📁 Project: \`${projectName}\``;
-    message += `\n📂 Path: \`${input.cwd || 'unknown'}\``;
-
-    if (notifConfig.description) {
-      message += `\n\n${notifConfig.description}`;
-    }
-
-    if (details) {
-      message += `\n\n\`\`\`\n${details}\n\`\`\``;
-    }
-
-    // Send notification to worker
+    // Send notification to worker using new format
     try {
       await fetch(`http://127.0.0.1:${config.worker_port}/api/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message,
-          status: notifType,
-          project: projectName
+          eventType: notifType,
+          project: projectName,
+          data: {
+            summary: details,
+            cwd: input.cwd || 'unknown'
+          }
         }),
         signal: AbortSignal.timeout(5000)
       });

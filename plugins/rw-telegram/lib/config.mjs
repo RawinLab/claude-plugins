@@ -21,7 +21,9 @@ const DEFAULT_CONFIG = {
     on_session_end: true,
     on_error: true
   },
-  ask_via_telegram: true
+  ask_via_telegram: true,
+  // Verbose mode: true = send all events formatted, false = summary only
+  verbose_mode: false
 };
 
 /**

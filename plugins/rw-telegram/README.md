@@ -17,6 +17,7 @@ This plugin transforms your Telegram into a powerful remote control for Claude C
 | Feature | Description |
 |---------|-------------|
 | **Smart Notifications** | Get notified when Claude completes tasks, needs input, or encounters errors |
+| **Verbose/Summary Modes** | Toggle between all events (verbose) or important only (summary) |
 | **Remote Control** | Send prompts to Claude directly from Telegram |
 | **Question Forwarding** | Answer Claude's questions from your phone |
 | **Project Context** | Automatically reads CLAUDE.md before executing tasks |
@@ -186,6 +187,59 @@ Restart Claude Code to activate the hooks. The worker will **auto-start** when y
 
 ---
 
+## Notification Modes
+
+Toggle between two modes using `/verbose` command in Telegram or `/telegram-verbose` in Claude:
+
+### Summary Mode (Default)
+
+Only important events are sent:
+- ✅ Task Complete
+- ❌ Errors
+- ❓ Questions from Claude
+- 📋 Plan Ready
+- 🏁 Session End
+
+### Verbose Mode
+
+All tool events are sent (formatted nicely):
+- 🔨 Bash commands and results
+- 📝 File edits
+- ✍️ File writes
+- 📖 File reads
+- 🤖 Agent spawns
+
+```
+📢 Verbose Mode Examples:
+
+🔨 *Bash*
+`npm test`
+→ ✅ 15 tests passed
+
+📝 *Edit*: user.ts
+Added login validation
+
+🤖 *Task*
+Agent: test-automator
+📝 Write tests for auth module
+```
+
+### Toggle Commands
+
+```bash
+# In Claude Code:
+/telegram-verbose on     # Enable verbose
+/telegram-verbose off    # Enable summary (default)
+/telegram-verbose status # Check current mode
+
+# In Telegram:
+/verbose on
+/verbose off
+/verbose          # Show status
+```
+
+---
+
 ## Telegram Commands
 
 ### Session Management
@@ -195,6 +249,7 @@ Restart Claude Code to activate the hooks. The worker will **auto-start** when y
 | `/help` | Show all available commands |
 | `/status` | Show current status (sessions, workdir, pending questions) |
 | `/cancel` | Cancel all pending questions |
+| `/verbose` | Toggle notification mode (verbose/summary) |
 
 ### Claude Control (via tmux)
 
@@ -244,6 +299,7 @@ When you use `/send`, Claude will:
 | `notifications.on_session_end` | boolean | `true` | Notify when session ends |
 | `notifications.on_error` | boolean | `true` | Notify on errors |
 | `ask_via_telegram` | boolean | `true` | Forward questions to Telegram |
+| `verbose_mode` | boolean | `false` | Send all tool events (true) or summary only (false) |
 
 ---
 
@@ -334,12 +390,16 @@ rw-telegram-claude-plugin/
 │   ├── mcp-server.mjs        # MCP server for Claude tools
 │   ├── ensure-worker.js      # SessionStart hook
 │   ├── notify-hook.js        # Smart notification hook
+│   ├── tool-notify-hook.js   # Tool event notification hook (verbose mode)
+│   ├── toggle-verbose.js     # Verbose mode toggle script
 │   └── ask-intercept-hook.js # Question forwarding hook
 ├── commands/
-│   └── telegram-setup.md     # Setup command for Claude
+│   ├── telegram-setup.md     # Setup command for Claude
+│   └── telegram-verbose.md   # Verbose mode toggle command
 ├── lib/
 │   ├── config.mjs            # Configuration management
 │   ├── telegram-api.mjs      # Telegram Bot API wrapper
+│   ├── formatter.mjs         # Message formatting for notifications
 │   └── utils.mjs             # Shared utilities
 ├── package.json
 └── README.md

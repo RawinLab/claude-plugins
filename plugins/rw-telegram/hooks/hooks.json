@@ -34,6 +34,16 @@
             "timeout": 300000
           }
         ]
+      },
+      {
+        "matcher": "Bash|Edit|Write|Read|Task|TaskOutput",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/tool-notify-hook.js\"",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "Stop": [

@@ -12,7 +12,7 @@
 
 import http from 'node:http';
 import { spawn } from 'node:child_process';
-import { loadConfig, saveWorkerPid, removeWorkerPid } from '../lib/config.mjs';
+import { loadConfig, saveWorkerPid, removeWorkerPid, updateConfig } from '../lib/config.mjs';
 import {
   getUpdates,
   sendMessage,
@@ -21,6 +21,11 @@ import {
   formatNotification,
   statusEmoji
 } from '../lib/telegram-api.mjs';
+import {
+  formatNotificationMessage,
+  formatSummaryEvent,
+  isSummaryEvent
+} from '../lib/formatter.mjs';
 import {
   log,
   logError,
@@ -271,6 +276,7 @@ async function handleMessage(message) {
         '/status - Show current status',
         '/help - Show this help',
         '/cancel - Cancel pending question',
+        '/verbose - Toggle notification mode',
         '',
         '*Claude Control (tmux):*',
         '/cd <path> - Set working directory',
@@ -279,13 +285,9 @@ async function handleMessage(message) {
         '/tmux\\_tail [n] - Show last n lines (default 50)',
         '/send <prompt> - Send prompt to Claude',
         '',
-        '*Notifications:*',
-        '✅ Task Complete',
-        '🔍 Review Complete',
-        '❓ Question',
-        '📋 Plan Ready',
-        '⏱️ Session Limit',
-        '🔴 API Error'
+        '*Notification Modes:*',
+        '📢 Verbose: All events formatted nicely',
+        '📋 Summary: Only important events (default)'
       ].join('\n'));
       break;
 
@@ -326,6 +328,35 @@ async function handleMessage(message) {
         await sendMessage(config.bot_token, chatId, '✅ All pending questions cancelled.');
       }
       break;
+
+    case '/verbose': {
+      const arg = rest?.toLowerCase();
+      if (arg === 'on' || arg === 'true') {
+        config.verbose_mode = true;
+        updateConfig({ verbose_mode: true });
+        await sendMessage(config.bot_token, chatId,
+          '📢 *Verbose Mode: ON*\n\nAll tool events will be sent (formatted nicely):\n🔨 Bash commands\n📝 File edits\n📖 File reads\n🤖 Agent spawns');
+      } else if (arg === 'off' || arg === 'false') {
+        config.verbose_mode = false;
+        updateConfig({ verbose_mode: false });
+        await sendMessage(config.bot_token, chatId,
+          '📋 *Summary Mode: ON*\n\nOnly important events will be sent:\n✅ Task complete\n❌ Errors\n❓ Questions\n📋 Plan ready');
+      } else {
+        // Toggle or show status
+        if (!arg || arg === 'status') {
+          const mode = config.verbose_mode ? '📢 Verbose' : '📋 Summary';
+          await sendMessage(config.bot_token, chatId,
+            `*Current Mode:* ${mode}\n\nUse:\n/verbose on - Enable verbose mode\n/verbose off - Enable summary mode`);
+        } else {
+          // Toggle
+          config.verbose_mode = !config.verbose_mode;
+          updateConfig({ verbose_mode: config.verbose_mode });
+          const mode = config.verbose_mode ? '📢 Verbose' : '📋 Summary';
+          await sendMessage(config.bot_token, chatId, `*Mode changed to:* ${mode}`);
+        }
+      }
+      break;
+    }
 
     // ============================================
     // TMUX Commands for Claude Control
@@ -561,10 +592,28 @@ async function handleRequest(req, res) {
     // Send notification
     if (path === '/api/notify' && method === 'POST') {
       const body = await parseBody(req);
-      const { message, status, project } = body;
+      const { message, status, project, eventType, toolName, input, result, data } = body;
 
+      // Use new formatter if eventType is provided
+      if (eventType) {
+        const formattedMessage = formatNotificationMessage(
+          eventType,
+          { project, toolName, input, result, ...data },
+          config.verbose_mode
+        );
+
+        // If null, skip sending (summary mode filters this event)
+        if (!formattedMessage) {
+          return sendJson(res, 200, { success: true, skipped: true });
+        }
+
+        await sendMessage(config.bot_token, config.chat_id, formattedMessage);
+        return sendJson(res, 200, { success: true });
+      }
+
+      // Legacy format: use old formatter
       if (!message) {
-        return sendJson(res, 400, { error: 'message required' });
+        return sendJson(res, 400, { error: 'message or eventType required' });
       }
 
       const formattedMessage = formatNotification(message, { status, project });
