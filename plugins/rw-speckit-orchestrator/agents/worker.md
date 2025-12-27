@@ -78,9 +78,22 @@ git checkout -b feat/{feature_id}-{feature_slug}
 
 ---
 
-## Step 3: Run All 5 Phases
+## Step 3: Run All 6 Phases
 
-### Phase 1: Specify
+### ⚠️ Phase Execution Mode
+
+| Phase | Mode | Description |
+|-------|------|-------------|
+| 1. Specify | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| 2. Clarify | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| 3. Plan | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| 4. Tasks | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| 5. Analyze | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| 6. Implement | ⚡ **PARALLEL OK!** | สามารถ spawn หลาย subagent พร้อมกันได้! |
+
+---
+
+### Phase 1: Specify (Sequential)
 
 ```
 /speckit.specify
@@ -90,7 +103,7 @@ git checkout -b feat/{feature_id}-{feature_slug}
 
 ---
 
-### Phase 2: Clarify
+### Phase 2: Clarify (Sequential)
 
 ```
 /speckit.clarify
@@ -105,7 +118,7 @@ git checkout -b feat/{feature_id}-{feature_slug}
 
 ---
 
-### Phase 3: Plan
+### Phase 3: Plan (Sequential)
 
 ```
 /speckit.plan
@@ -115,7 +128,17 @@ git checkout -b feat/{feature_id}-{feature_slug}
 
 ---
 
-### Phase 4: Analyze
+### Phase 4: Tasks (Sequential)
+
+```
+/speckit.tasks
+```
+
+**After completion:** Check context, compact if > 50%
+
+---
+
+### Phase 5: Analyze (Sequential)
 
 ```
 /speckit.analyze
@@ -131,7 +154,7 @@ git checkout -b feat/{feature_id}-{feature_slug}
 
 ---
 
-### Phase 5: Implement
+### Phase 6: Implement (⚡ PARALLEL ALLOWED!)
 
 **ก่อนเริ่ม:** รัน `/compact` เพื่อเตรียม context
 
@@ -139,13 +162,59 @@ git checkout -b feat/{feature_id}-{feature_slug}
 /speckit.implement
 ```
 
-**Implementation Guidelines:**
+## 🚀 Parallel Implementation Strategy
 
-ให้ใช้ command /speckit.implement เพื่อเริ่มการ implement
+**ใน phase implement สามารถ spawn หลาย subagent พร้อมกันได้เต็มที่!**
 
-คุณสามารถที่จะใช้งาน Claude Code agent ที่มีความเชี่ยวชาญเฉพาะด้านได้ สามารถดูได้จาก /agents
+### Available Specialized Agents
 
-คุณสามารถที่จะสั่งงาน Claude Code subagent เพื่อทำงานแบบ parallel ได้
+ดูรายการ agents ทั้งหมดด้วย `/agents` หรือใช้ agents เหล่านี้:
+
+| Agent Type | Use For |
+|------------|---------|
+| `frontend-developer` | React, UI components, styling |
+| `backend-architect` | API, database, services |
+| `unit-testing:test-automator` | Writing tests |
+| `javascript-typescript:typescript-pro` | TypeScript, type safety |
+| `multi-platform-apps:mobile-developer` | Mobile apps |
+
+### Parallel Execution Example
+
+```
+// ✅ CAN spawn multiple Tasks in implement phase!
+Task(
+  subagent_type: "frontend-developer",
+  description: "Implement UI components",
+  run_in_background: true,  // Run in background
+  prompt: "..."
+)
+
+Task(
+  subagent_type: "backend-architect",
+  description: "Implement API endpoints",
+  run_in_background: true,
+  prompt: "..."
+)
+
+Task(
+  subagent_type: "unit-testing:test-automator",
+  description: "Write tests",
+  run_in_background: true,
+  prompt: "..."
+)
+
+// Wait for all to complete
+TaskOutput(task_id: frontend_task_id)
+TaskOutput(task_id: backend_task_id)
+TaskOutput(task_id: test_task_id)
+```
+
+### Skills You Can Use
+
+ดูรายการ skills ทั้งหมดด้วย `/skills` เช่น:
+- `/frontend-design` - สร้าง UI ที่สวยงาม
+- `/javascript-testing-patterns` - เขียน tests
+- `/api-design-principles` - ออกแบบ API
 
 **เน้นย้ำความซื่อสัตย์:**
 - ต้องทำงานได้จริง
@@ -343,13 +412,18 @@ Phase: {which phase failed}
 1. **AUTO-ANSWER** - ตอบ YES/recommended ทุก prompt ไม่รอ user
 2. **MANAGE CONTEXT** - /context + /compact บ่อยๆ โดยเฉพาะก่อน implement
 3. **NO MOCKS** - ทำงานจริง ไม่ mock data
-4. **COMPLETE ALL PHASES** - ต้องผ่านทั้ง 9 steps:
-   - Steps 1-3: Setup (context, branch, phases)
+4. **PHASE EXECUTION MODE:**
+   - Phases 1-5 (specify → clarify → plan → tasks → analyze): **SEQUENTIAL**
+   - Phase 6 (implement): **PARALLEL OK!** - spawn หลาย subagent ได้
+5. **COMPLETE ALL STEPS** - ต้องผ่านทั้งหมด:
+   - Steps 1-2: Setup (context, branch)
+   - Step 3: Run 6 phases (specify → clarify → plan → tasks → analyze → implement)
    - Step 4: Verify (build, types, no TODO)
-   - Step 5: Write Tests (ใช้ agent หรือเขียนเอง)
+   - Step 5: Write Tests
    - Step 6: Run Tests (max 3 retries)
    - Step 7: Smoke Test (optional)
    - Steps 8-9: PR, Merge, Report
-5. **TESTS MUST PASS** - ถ้า test fail เกิน 3 ครั้ง → feature failed
-6. **PR AND MERGE** - สร้าง PR และ merge ก่อน report
-7. **SUBAGENT CONTEXT** - Subagents ต้อง manage context เอง
+6. **TESTS MUST PASS** - ถ้า test fail เกิน 3 ครั้ง → feature failed
+7. **PR AND MERGE** - สร้าง PR และ merge ก่อน report
+8. **SUBAGENT CONTEXT** - Subagents ต้อง manage context เอง
+9. **USE SPECIALIZED AGENTS** - ใช้ agents ที่เชี่ยวชาญใน implement phase

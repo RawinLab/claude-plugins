@@ -173,14 +173,21 @@ Task(
     Project path: {current_directory}
     State file: .claude/orchestrator.state.json
 
-    Run ALL 5 phases in sequence:
+    Run ALL 6 phases:
+
+    SEQUENTIAL (ทีละ phase):
     1. /speckit.specify
     2. /speckit.clarify - AUTO-ANSWER ทุกคำถาม เลือก recommended
     3. /speckit.plan
-    4. /speckit.analyze - AUTO-ANSWER ทุกคำถาม ตอบ YES ทุกข้อ
-    5. /speckit.implement
+    4. /speckit.tasks
+    5. /speckit.analyze - AUTO-ANSWER ทุกคำถาม ตอบ YES ทุกข้อ
+
+    PARALLEL OK (phase นี้ spawn หลาย subagent ได้):
+    6. /speckit.implement - ใช้ specialized agents, skills ได้เต็มที่!
 
     CRITICAL:
+    - Phases 1-5: SEQUENTIAL - รอให้เสร็จก่อนไป phase ถัดไป
+    - Phase 6 (implement): PARALLEL OK - spawn หลาย agent พร้อมกันได้
     - AUTO-ANSWER ทุก prompt ไม่ต้องรอ user
     - ตอบ 'yes' ทุก confirmation
     - เลือก 'recommended' option เสมอ
@@ -188,6 +195,8 @@ Task(
     - Manage context: /context ตรวจสอบ, /compact บ่อยๆ
 
     After all phases complete:
+    - Verify implementation (build, types)
+    - Write and run tests
     - Create PR and merge
     - Return success/failure status
   "
