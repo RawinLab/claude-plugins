@@ -80,16 +80,50 @@ git checkout -b feat/{feature_id}-{feature_slug}
 
 ## Step 3: Run All 6 Phases
 
-### ⚠️ Phase Execution Mode
+### ⚠️ Execution Mode
 
-| Phase | Mode | Description |
-|-------|------|-------------|
-| 1. Specify | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
-| 2. Clarify | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
-| 3. Plan | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
-| 4. Tasks | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
-| 5. Analyze | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
-| 6. Implement | ⚡ **PARALLEL OK!** | สามารถ spawn หลาย subagent พร้อมกันได้! |
+| Step | Mode | Description |
+|------|------|-------------|
+| Phase 1. Specify | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| Phase 2. Clarify | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| Phase 3. Plan | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| Phase 4. Tasks | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| Phase 5. Analyze | 🔄 Sequential | ต้องรอให้เสร็จก่อนไป phase ถัดไป |
+| **Phase 6. Implement** | ⚡ **PARALLEL!** | spawn หลาย subagent ได้! |
+| **Step 4. Verify** | ⚡ **PARALLEL!** | ใช้ subagent ได้ |
+| **Step 5. Write Tests** | ⚡ **PARALLEL!** | ใช้ test-automator agent |
+| **Step 6. Run Tests** | ⚡ **PARALLEL!** | ใช้ subagent ได้ |
+| **Step 7. Smoke Test** | ⚡ **PARALLEL!** | ใช้ subagent ได้ |
+| Step 8. PR & Merge | 🔄 Sequential | ต้องรอ verify/test เสร็จก่อน |
+| Step 9. Report | 🔄 Sequential | สุดท้าย |
+
+**สรุป:** ตั้งแต่ Implement (Phase 6) ถึง Smoke Test (Step 7) = **PARALLEL ได้หมด!**
+
+### 🚀 Parallel Strategy Example
+
+```
+// หลังจาก Phase 5 (Analyze) เสร็จ - สามารถ spawn parallel ได้เลย!
+
+// 1. Spawn all tasks in parallel
+frontend_task = Task(subagent_type: "frontend-developer", run_in_background: true, ...)
+backend_task = Task(subagent_type: "backend-architect", run_in_background: true, ...)
+test_task = Task(subagent_type: "unit-testing:test-automator", run_in_background: true, ...)
+
+// 2. Wait for implementation to complete
+TaskOutput(frontend_task)
+TaskOutput(backend_task)
+
+// 3. Run verify + tests in parallel
+verify_task = Task(subagent_type: "typescript-pro", run_in_background: true, ...)
+TaskOutput(test_task)  // Wait for tests to be written
+run_tests_task = Task(subagent_type: "debugger", run_in_background: true, ...)
+
+// 4. Wait for all verification
+TaskOutput(verify_task)
+TaskOutput(run_tests_task)
+
+// 5. Then PR & Merge (sequential)
+```
 
 ---
 
@@ -228,9 +262,11 @@ TaskOutput(task_id: test_task_id)
 
 ---
 
-## Step 4: Verify Implementation
+## Step 4: Verify Implementation (⚡ PARALLEL OK!)
 
-**ตรวจสอบว่า implementation เสร็จสมบูรณ์:**
+**ตรวจสอบว่า implementation เสร็จสมบูรณ์**
+
+### Option A: Run directly
 
 ```bash
 # TypeScript check
@@ -243,8 +279,26 @@ npm run build 2>&1 | tail -20
 git diff main --name-only | xargs grep -l "TODO\|FIXME" 2>/dev/null || echo "Clean"
 ```
 
+### Option B: Use Subagent (Parallel)
+
+```
+Task(
+  subagent_type: "javascript-typescript:typescript-pro",
+  description: "Verify TypeScript and build",
+  run_in_background: true,
+  prompt: "
+    Verify the implementation:
+    1. Run tsc --noEmit
+    2. Run npm run build
+    3. Check for TODO/FIXME in changed files
+    4. Fix any issues found
+    Report: PASS or FAIL with details
+  "
+)
+```
+
 **If verification fails:**
-1. กลับไปแก้ไขใน implement
+1. แก้ไข code
 2. รัน verify อีกครั้ง
 3. ทำซ้ำจนกว่าจะผ่าน
 
@@ -252,16 +306,17 @@ git diff main --name-only | xargs grep -l "TODO\|FIXME" 2>/dev/null || echo "Cle
 
 ---
 
-## Step 5: Write Tests
+## Step 5: Write Tests (⚡ PARALLEL OK!)
 
-**เขียน test cases สำหรับ feature ที่ implement:**
+**เขียน test cases สำหรับ feature ที่ implement**
 
-ใช้ specialized agent สำหรับเขียน tests:
+### Recommended: Use test-automator Agent
 
 ```
 Task(
   subagent_type: "unit-testing:test-automator",
   description: "Write tests for {feature_name}",
+  run_in_background: true,  // Can run parallel with other tasks
   prompt: "
     Write comprehensive tests for the implementation of {feature_name}.
 
@@ -279,46 +334,64 @@ Task(
 )
 ```
 
-**หรือถ้าไม่มี agent:** Worker เขียน tests เอง
+### Alternative Agents/Skills
+
+| Agent/Skill | Use Case |
+|-------------|----------|
+| `unit-testing:test-automator` | Comprehensive test automation |
+| `full-stack-orchestration:test-automator` | Full stack tests |
+| `/javascript-testing-patterns` | JS/TS testing patterns |
+
+**หรือ:** Worker เขียน tests เอง
 
 **After tests written:** Continue to Run Tests
 
 ---
 
-## Step 6: Run Tests
+## Step 6: Run Tests (⚡ PARALLEL OK!)
 
-**รัน tests และแก้ไขจนกว่าจะผ่าน (max 3 retries):**
+**รัน tests และแก้ไขจนกว่าจะผ่าน (max 3 retries)**
+
+### Option A: Run directly
 
 ```bash
 # Run all tests
 npm test 2>&1 | tail -50
 ```
 
-**Test Loop:**
+### Option B: Use Subagent
 
 ```
-retry_count = 0
-max_retries = 3
+Task(
+  subagent_type: "unit-testing:debugger",
+  description: "Run and fix tests",
+  run_in_background: true,
+  prompt: "
+    Run tests and fix any failures:
+    1. Run npm test
+    2. If fails, analyze error and fix
+    3. Retry up to 3 times
+    Report: PASS (all tests pass) or FAIL (after 3 retries)
+  "
+)
+```
 
-WHILE tests fail AND retry_count < max_retries:
-    1. วิเคราะห์ error
-    2. แก้ไข code หรือ test
-    3. รัน tests อีกครั้ง
-    4. retry_count += 1
-END WHILE
+**Test Loop (max 3 retries):**
 
-IF tests still fail after max_retries:
+```
+IF tests still fail after 3 retries:
     → Mark feature as FAILED
-    → Report error to orchestrator
 ELSE:
     → Continue to Smoke Test
 ```
 
 ---
 
-## Step 7: Smoke Test (Optional)
+## Step 7: Smoke Test (⚡ PARALLEL OK! - Optional)
 
-**ทดสอบว่า app รันได้และ endpoint ทำงาน:**
+**ทดสอบว่า app รันได้และ endpoint ทำงาน**
+
+### Option A: Run directly
 
 ```bash
 # Start app in background
@@ -333,10 +406,23 @@ curl -s http://localhost:3000/health || curl -s http://localhost:3000/api/health
 kill $APP_PID 2>/dev/null
 ```
 
-**หรือใช้วิธีอื่นตาม project:**
-- `npm start` แล้ว test
-- Docker compose up แล้ว test
-- ตรวจสอบว่า build artifact ทำงานได้
+### Option B: Use Subagent
+
+```
+Task(
+  subagent_type: "full-stack-orchestration:test-automator",
+  description: "Smoke test the application",
+  run_in_background: true,
+  prompt: "
+    Run smoke test:
+    1. Start the application
+    2. Test health endpoint
+    3. Test main feature endpoints
+    4. Stop the application
+    Report: PASS or FAIL
+  "
+)
+```
 
 **ถ้า smoke test ทำไม่ได้:** ข้ามไปได้ (optional)
 
@@ -412,18 +498,21 @@ Phase: {which phase failed}
 1. **AUTO-ANSWER** - ตอบ YES/recommended ทุก prompt ไม่รอ user
 2. **MANAGE CONTEXT** - /context + /compact บ่อยๆ โดยเฉพาะก่อน implement
 3. **NO MOCKS** - ทำงานจริง ไม่ mock data
-4. **PHASE EXECUTION MODE:**
-   - Phases 1-5 (specify → clarify → plan → tasks → analyze): **SEQUENTIAL**
-   - Phase 6 (implement): **PARALLEL OK!** - spawn หลาย subagent ได้
+4. **EXECUTION MODE:**
+   - Phases 1-5 (specify → clarify → plan → tasks → analyze): **🔄 SEQUENTIAL**
+   - Phase 6 + Steps 4-7 (implement → verify → tests → smoke): **⚡ PARALLEL OK!**
+   - Steps 8-9 (PR, Report): **🔄 SEQUENTIAL** (ต้องรอ parallel เสร็จก่อน)
 5. **COMPLETE ALL STEPS** - ต้องผ่านทั้งหมด:
    - Steps 1-2: Setup (context, branch)
-   - Step 3: Run 6 phases (specify → clarify → plan → tasks → analyze → implement)
-   - Step 4: Verify (build, types, no TODO)
-   - Step 5: Write Tests
-   - Step 6: Run Tests (max 3 retries)
-   - Step 7: Smoke Test (optional)
+   - Step 3: Run 6 phases
+   - Steps 4-7: Verify + Tests (parallel ได้)
    - Steps 8-9: PR, Merge, Report
-6. **TESTS MUST PASS** - ถ้า test fail เกิน 3 ครั้ง → feature failed
-7. **PR AND MERGE** - สร้าง PR และ merge ก่อน report
-8. **SUBAGENT CONTEXT** - Subagents ต้อง manage context เอง
-9. **USE SPECIALIZED AGENTS** - ใช้ agents ที่เชี่ยวชาญใน implement phase
+6. **USE SPECIALIZED AGENTS** - ใช้ agents/skills ที่เชี่ยวชาญ:
+   - `frontend-developer` - UI, React
+   - `backend-architect` - API, database
+   - `unit-testing:test-automator` - Tests
+   - `unit-testing:debugger` - Fix test failures
+   - `javascript-typescript:typescript-pro` - TypeScript
+7. **TESTS MUST PASS** - ถ้า test fail เกิน 3 ครั้ง → feature failed
+8. **PR AND MERGE** - สร้าง PR และ merge ก่อน report
+9. **SUBAGENT CONTEXT** - Subagents ต้อง manage context เอง
