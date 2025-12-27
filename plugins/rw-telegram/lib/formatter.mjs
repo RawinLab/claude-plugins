@@ -174,32 +174,57 @@ function formatBashResult(result, maxLength = 150) {
  */
 export function formatToolEvent(toolName, input, result) {
   const emoji = getToolEmoji(toolName);
-  let message = `${emoji} *${toolName}*`;
+  const timestamp = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+
+  const lines = [];
+  lines.push(`${emoji} ${toolName}`);
+  lines.push(`⏰ ${timestamp}`);
+  lines.push('');
 
   switch (toolName) {
     case 'Bash': {
       const cmd = extractBashCommand(input);
       if (cmd) {
-        message += `\n\`${truncateText(cmd, 60)}\``;
+        lines.push(`Command: ${truncateText(cmd, 100)}`);
       }
       if (result) {
-        message += `\n→ ${formatBashResult(result)}`;
+        const resultStr = formatBashResult(result, 200);
+        lines.push(`Result: ${resultStr}`);
       }
       break;
     }
 
-    case 'Edit':
-    case 'Write':
+    case 'Edit': {
+      const filePath = extractFilePath(input);
+      if (filePath) {
+        lines.push(`File: ${filePath}`);
+      }
+      try {
+        const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+        if (parsed.old_string) {
+          lines.push(`Changed: ${truncateText(parsed.old_string, 50)} → ${truncateText(parsed.new_string, 50)}`);
+        }
+      } catch {}
+      break;
+    }
+
+    case 'Write': {
+      const filePath = extractFilePath(input);
+      if (filePath) {
+        lines.push(`File: ${filePath}`);
+        lines.push(`Action: Created/Overwritten`);
+      }
+      break;
+    }
+
     case 'Read': {
       const filePath = extractFilePath(input);
       if (filePath) {
-        // Show only filename, not full path
-        const fileName = filePath.split('/').pop();
-        message += `: \`${fileName}\``;
+        lines.push(`File: ${filePath}`);
       }
-      if (toolName === 'Read' && result) {
-        const lines = String(result).split('\n').length;
-        message += ` (${lines} lines)`;
+      if (result) {
+        const lineCount = String(result).split('\n').length;
+        lines.push(`Lines: ${lineCount}`);
       }
       break;
     }
@@ -207,51 +232,84 @@ export function formatToolEvent(toolName, input, result) {
     case 'Task': {
       try {
         const parsed = typeof input === 'string' ? JSON.parse(input) : input;
-        const agentType = parsed.subagent_type || 'agent';
+        const agentType = parsed.subagent_type || 'unknown';
         const desc = parsed.description || '';
-        message += `\n🤖 Agent: \`${agentType}\``;
+        const prompt = parsed.prompt || '';
+
+        lines.push(`Agent: ${agentType}`);
         if (desc) {
-          message += `\n📝 ${truncateText(desc, 80)}`;
+          lines.push(`Task: ${desc}`);
         }
-      } catch {
-        // Ignore parse errors
+        if (prompt) {
+          lines.push(`Prompt: ${truncateText(prompt, 150)}`);
+        }
+      } catch {}
+      break;
+    }
+
+    case 'TaskOutput': {
+      lines.push(`Status: Retrieving agent output`);
+      if (result) {
+        lines.push(`Result: ${truncateText(String(result), 200)}`);
       }
       break;
     }
 
-    case 'Glob':
+    case 'Glob': {
+      try {
+        const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+        if (parsed.pattern) {
+          lines.push(`Pattern: ${parsed.pattern}`);
+        }
+        if (parsed.path) {
+          lines.push(`Path: ${parsed.path}`);
+        }
+      } catch {}
+      if (result) {
+        const files = String(result).split('\n').filter(f => f.trim());
+        lines.push(`Found: ${files.length} files`);
+      }
+      break;
+    }
+
     case 'Grep': {
       try {
         const parsed = typeof input === 'string' ? JSON.parse(input) : input;
-        const pattern = parsed.pattern || '';
-        if (pattern) {
-          message += `: \`${truncateText(pattern, 40)}\``;
+        if (parsed.pattern) {
+          lines.push(`Search: ${parsed.pattern}`);
         }
-      } catch {
-        // Ignore
+      } catch {}
+      if (result) {
+        const matches = String(result).split('\n').filter(f => f.trim());
+        lines.push(`Matches: ${matches.length}`);
       }
       break;
     }
 
     case 'AskUserQuestion': {
-      message = `❓ *Claude needs input*`;
+      lines[0] = `❓ Question from Claude`;
+      lines[1] = `⏰ ${timestamp}`;
       try {
         const parsed = typeof input === 'string' ? JSON.parse(input) : input;
         if (parsed.questions && parsed.questions[0]) {
-          message += `\n${truncateText(parsed.questions[0].question, 100)}`;
+          lines.push(`Question: ${parsed.questions[0].question}`);
+          if (parsed.questions[0].options) {
+            const opts = parsed.questions[0].options.map(o => o.label).join(', ');
+            lines.push(`Options: ${opts}`);
+          }
         }
-      } catch {
-        // Ignore
-      }
+      } catch {}
       break;
     }
 
     default:
-      // Generic format
-      break;
+      lines.push(`Input: ${truncateText(JSON.stringify(input), 100)}`);
+      if (result) {
+        lines.push(`Result: ${truncateText(String(result), 100)}`);
+      }
   }
 
-  return message;
+  return lines.join('\n');
 }
 
 /**
