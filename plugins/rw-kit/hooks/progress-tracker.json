@@ -1,0 +1,12 @@
+{
+  "name": "rw-kit-progress-tracker-v2",
+  "description": "Enhanced task completion detection with multi-pattern matching (Layer 1 of 3-layer verification)",
+  "event": "PostToolUse",
+  "disabled": false,
+  "hooks": [
+    {
+      "type": "prompt",
+      "prompt": "Check if this tool output indicates a task completion during rw-kit execution.\n\n## DETECTION PATTERNS (match ANY of these)\n\n### Pattern 1: Minimal Output Template\n- Contains 'DONE:' followed by summary\n- Contains 'Files:' with file list\n\n### Pattern 2: Task Completion Indicators\n- Contains 'Task completed successfully'\n- Contains 'completed' with task description\n- Contains checkmark emoji with task reference\n\n### Pattern 3: Agent Status\n- TaskOutput shows status: 'completed'\n- Agent reports task finished\n\n### Pattern 4: Task ID Reference\n- Contains 'T001' or similar task ID pattern with completion status\n- Format: [T###] followed by completion indicator\n\n## ACTION: If Pattern Matched\n\nIf task completed AND .claude/rw-kit.state.json exists:\n\n1. Extract task info:\n   - Task ID (e.g., T001, task-001)\n   - Files mentioned (for verification queue)\n   - Summary of completion\n\n2. Update state file (Layer 1 - Agent Done):\n```bash\njq --arg tid \"$TASK_ID\" --arg ts \"$(date -Iseconds)\" --argjson files '[\"file1.ts\", \"file2.ts\"]' '\n  .tasks[$tid].status = \"completed\" |\n  .tasks[$tid].completed_at = $ts |\n  .tasks[$tid].verification.agent_done = true |\n  .tasks[$tid].files_mentioned = $files |\n  .progress.completed += 1 |\n  .progress.in_progress -= 1 |\n  .updated_at = $ts\n' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json\n```\n\n3. Queue for file verification (Layer 2):\n   - Add task to verification queue if files were mentioned\n   - File verification hook will validate file existence\n\n## RETURN FORMAT\n\n- 'UPDATED: [task-id] files:[file-list]' - Task marked complete, needs file verification\n- 'UPDATED: [task-id] no-files' - Task marked complete, no files to verify\n- 'SKIP' - Not a completion signal or state file doesn't exist\n\n## IMPORTANT\n\n- This is Layer 1 of 3-layer verification\n- Layer 2 (file verification) and Layer 3 (state sync) must also pass\n- Task is only truly complete when all 3 layers agree"
+    }
+  ]
+}

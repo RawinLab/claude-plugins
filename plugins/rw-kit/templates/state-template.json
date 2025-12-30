@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "session_id": "",
+  "started_at": "",
+  "updated_at": "",
+  "status": "initializing",
+
+  "config": {
+    "todolist_path": "",
+    "plan_path": "",
+    "clarified_requirements_path": "",
+    "analysis_report_path": "",
+    "project_name": "",
+    "project_path": "",
+    "auto_answer": true
+  },
+
+  "user_stories": {},
+
+  "progress": {
+    "total_tasks": 0,
+    "completed": 0,
+    "in_progress": 0,
+    "pending": 0,
+    "failed": 0,
+    "verified": 0
+  },
+
+  "tasks": {},
+
+  "batches": [],
+
+  "current_batch": null,
+
+  "resume_point": {
+    "batch_id": null,
+    "task_id": null,
+    "phase": null
+  },
+
+  "logs": []
+}

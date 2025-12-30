@@ -1,0 +1,12 @@
+{
+  "name": "rw-kit-auto-answer",
+  "description": "Auto-answer confirmations during workflow execution (plan, execute, implement, test, qa)",
+  "event": "Notification",
+  "disabled": false,
+  "hooks": [
+    {
+      "type": "prompt",
+      "prompt": "Check if this notification is asking a question during rw-kit workflow execution (/project:* commands).\n\nRules:\n1. If it contains options with '(Recommended)' marker → respond with the recommended option label\n2. If asking yes/no confirmation (proceed, approve, continue, confirm, run tests, create PR) → respond 'yes'\n3. If asking to select from numbered options → respond with the number of the recommended option\n4. If not a question or not during rw-kit workflow → respond 'SKIP'\n\nReturn ONLY the answer or 'SKIP', nothing else. No explanations."
+    }
+  ]
+}

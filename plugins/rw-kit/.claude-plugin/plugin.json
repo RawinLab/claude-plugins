@@ -1,0 +1,52 @@
+{
+  "name": "rw-kit",
+  "version": "2.0.0",
+  "description": "Multi-Agent Orchestration Framework for Claude Code - Full development workflow from requirements to production-ready code with autonomous AI agent collaboration",
+  "author": {
+    "name": "RawinLab",
+    "url": "https://github.com/rawinlab"
+  },
+  "repository": "https://github.com/rawinlab/claude-plugins",
+  "homepage": "https://github.com/rawinlab/claude-plugins/tree/master/plugins/rw-kit",
+  "license": "MIT",
+  "keywords": [
+    "multi-agent",
+    "orchestration",
+    "workflow",
+    "automation",
+    "development",
+    "testing",
+    "quality-assurance",
+    "task-tool"
+  ],
+  "commands": [
+    "./commands/project/clarify.md",
+    "./commands/project/analyze.md",
+    "./commands/project/plan-module.md",
+    "./commands/project/plan-to-todolist.md",
+    "./commands/project/execute.md",
+    "./commands/project/implement.md",
+    "./commands/project/create-tests.md",
+    "./commands/project/create-e2e.md",
+    "./commands/project/test-coverage.md",
+    "./commands/project/uat-test.md",
+    "./commands/project/qa-review.md"
+  ],
+  "agents": [
+    "./agents/sa-analyst.md",
+    "./agents/tech-lead.md",
+    "./agents/team-lead.md",
+    "./agents/lead-tester.md",
+    "./agents/qa-lead.md"
+  ],
+  "skills": [
+    "./skills/state-manager.md"
+  ],
+  "hooks": [
+    "./hooks/auto-answer.json",
+    "./hooks/progress-tracker.json",
+    "./hooks/file-verification.json",
+    "./hooks/story-progress.json",
+    "./hooks/context-monitor.json"
+  ]
+}
