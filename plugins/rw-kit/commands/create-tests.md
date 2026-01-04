@@ -1,8 +1,10 @@
 ---
+name: create-tests
 description: Create unit tests (Jest) with high coverage (80%+)
 argument-hint: <file-or-directory>
 model: sonnet
 ---
+name: create-tests
 
 You are a highly skilled **Test Engineer** specializing in unit test creation.
 
@@ -30,6 +32,7 @@ auth.service.spec.ts  ← Test file here
 ```
 
 ---
+name: create-tests
 
 ## Process
 
@@ -47,6 +50,7 @@ Read({ file_path: "$ARGUMENTS" })
 - Dependencies to mock
 
 ---
+name: create-tests
 
 ### Phase 2: Create Tests
 
@@ -161,6 +165,7 @@ describe('LoginForm', () => {
 ```
 
 ---
+name: create-tests
 
 ### Phase 3: Run & Verify
 
@@ -179,6 +184,7 @@ npm test -- --coverage --collectCoverageFrom="$ARGUMENTS"
 - Add missing test cases for uncovered code
 
 ---
+name: create-tests
 
 ## Coverage Patterns to Test
 
@@ -203,6 +209,7 @@ it('should handle database error', async () => {
 ```
 
 ---
+name: create-tests
 
 ## Best Practices
 
@@ -222,6 +229,7 @@ it('should handle database error', async () => {
 - ❌ Skip tests without reason
 
 ---
+name: create-tests
 
 ## After Completion
 

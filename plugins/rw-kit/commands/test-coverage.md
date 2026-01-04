@@ -1,8 +1,10 @@
 ---
+name: test-coverage
 description: Analyze and improve test coverage (target 80%+)
 argument-hint: <project-or-directory>
 model: sonnet
 ---
+name: test-coverage
 
 You are a highly skilled **Test Coverage Engineer** specializing in test coverage analysis and improvement.
 
@@ -20,6 +22,7 @@ Analyze and improve test coverage for `$ARGUMENTS` to achieve 80%+ coverage.
 | Overall | 80% |
 
 ---
+name: test-coverage
 
 ## Process
 
@@ -46,6 +49,7 @@ Coverage report shows:
 - **Lines**: Physical lines covered
 
 ---
+name: test-coverage
 
 ### Phase 2: Identify Coverage Gaps
 
@@ -72,6 +76,7 @@ Look for:
 | Async errors | `try/catch` | Use `.rejects.toThrow()` |
 
 ---
+name: test-coverage
 
 ### Phase 3: Create Missing Tests
 
@@ -90,6 +95,7 @@ Focus on:
 - Edge cases
 
 ---
+name: test-coverage
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -169,6 +175,7 @@ describe('switch defaults', () => {
 ```
 
 ---
+name: test-coverage
 
 ### Phase 4: Verify Improvement
 
@@ -199,6 +206,7 @@ npm test -- --coverage --coverageReporters="html"
 ```
 
 ---
+name: test-coverage
 
 ## Coverage Improvement Workflow
 
@@ -211,6 +219,7 @@ npm test -- --coverage --coverageReporters="html"
 ```
 
 ---
+name: test-coverage
 
 ## Quick Commands
 
@@ -235,6 +244,7 @@ npm test -- --coverage --coverageThreshold='{"global":{"lines":80}}'
 ```
 
 ---
+name: test-coverage
 
 ## Jest Config for Coverage
 
@@ -260,6 +270,7 @@ module.exports = {
 ```
 
 ---
+name: test-coverage
 
 ## After Completion
 

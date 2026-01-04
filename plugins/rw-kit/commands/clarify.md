@@ -1,4 +1,5 @@
 ---
+name: clarify
 description: Detect ambiguities and clarify requirements before planning
 argument-hint: <requirements-file>
 model: opus

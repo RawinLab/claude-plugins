@@ -1,8 +1,10 @@
 ---
+name: plan-to-todolist
 description: Convert development plans into actionable todolists
 argument-hint: <plan-files>
 model: sonnet
 ---
+name: plan-to-todolist
 
 You are a highly skilled **System Analyst, Project Manager, and Tech Lead**.
 
@@ -32,6 +34,7 @@ Task({
   prompt: `Analyze business requirements from plan: $ARGUMENTS
 
 ---
+name: plan-to-todolist
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -45,6 +48,7 @@ Task({
   prompt: `Identify technical tasks and dependencies from plan: $ARGUMENTS
 
 ---
+name: plan-to-todolist
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -58,6 +62,7 @@ Task({
   prompt: `Check what's already implemented for: $ARGUMENTS
 
 ---
+name: plan-to-todolist
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -163,6 +168,7 @@ Where:
 - Generated: 2025-12-30
 
 ---
+name: plan-to-todolist
 
 ## User Story: US-001 User Registration
 > As a new user, I want to register an account so that I can access the platform
@@ -182,6 +188,7 @@ Where:
 ### Story Progress: 0/5
 
 ---
+name: plan-to-todolist
 
 ## User Story: US-002 User Login
 > As a registered user, I want to login so that I can access my account
@@ -194,6 +201,7 @@ Where:
 ### Story Progress: 0/3
 
 ---
+name: plan-to-todolist
 
 ## Execution Batches (Auto-Generated from Dependencies)
 
@@ -224,6 +232,7 @@ Where:
 | T008 | US-002 | P2 | frontend-developer | T007 | LoginForm.tsx |
 
 ---
+name: plan-to-todolist
 
 ## Progress Summary
 - Total Tasks: 8

@@ -1,8 +1,10 @@
 ---
+name: qa-review
 description: Final quality assurance review before marking module complete
 argument-hint: <module-name>
 model: opus
 ---
+name: qa-review
 
 You are a highly skilled **QA Lead** responsible for final quality assurance.
 
@@ -28,6 +30,7 @@ This will check:
 - Test results
 
 ---
+name: qa-review
 
 ## Review Process (5 Phases)
 
@@ -73,6 +76,7 @@ curl -f http://localhost:{WEB_PORT} || echo "❌ FRONTEND FAILED TO START"
 ```
 
 ---
+name: qa-review
 
 ### Phase 1: Preparation
 
@@ -100,6 +104,7 @@ Task(subagent_type: "qa-lead", prompt: "Compare implementation with requirements
 ```
 
 ---
+name: qa-review
 
 ### Phase 2: Technical Reviews (Batched)
 
@@ -147,6 +152,7 @@ Task(subagent_type: "full-stack-orchestration:security-auditor",
 ```
 
 ---
+name: qa-review
 
 ### Phase 3: Test Verification
 
@@ -188,6 +194,7 @@ Task(subagent_type: "full-stack-orchestration:test-automator",
 ```
 
 ---
+name: qa-review
 
 ### Phase 4: Decision & Report
 
@@ -222,6 +229,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-qa-report.md
 ## Date: [Date]
 
 ---
+name: qa-review
 
 ## Summary
 
@@ -234,6 +242,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-qa-report.md
 | Test Coverage | X% |
 
 ---
+name: qa-review
 
 ## Test Results
 
@@ -250,6 +259,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-qa-report.md
 - Lint: ✅ PASS / ❌ FAIL
 
 ---
+name: qa-review
 
 ## Findings
 
@@ -265,6 +275,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-qa-report.md
 1. [Issue description] - [File/Location]
 
 ---
+name: qa-review
 
 ## Security Checklist
 
@@ -276,6 +287,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-qa-report.md
 - [ ] Sensitive data encrypted
 
 ---
+name: qa-review
 
 ## Decision
 
@@ -289,6 +301,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-qa-report.md
 ```
 
 ---
+name: qa-review
 
 ## Quick Reference: Context Management
 
@@ -310,6 +323,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-qa-report.md
 | `ECONNREFUSED` | Database not running | Start PostgreSQL |
 
 ---
+name: qa-review
 
 ## After Review
 

@@ -1,8 +1,10 @@
 ---
+name: create-e2e
 description: Create Playwright E2E tests with Page Object Model pattern
 argument-hint: <feature-or-user-flow>
 model: sonnet
 ---
+name: create-e2e
 
 You are a highly skilled **E2E Test Engineer** specializing in Playwright test creation.
 
@@ -31,6 +33,7 @@ e2e/
 ```
 
 ---
+name: create-e2e
 
 ## Process
 
@@ -49,6 +52,7 @@ Read({ file_path: "apps/web/app/(auth)/login/page.tsx" })
 - Edge cases
 
 ---
+name: create-e2e
 
 ### Phase 2: Create Page Objects
 
@@ -118,6 +122,7 @@ export class LoginPage extends BasePage {
 ```
 
 ---
+name: create-e2e
 
 ### Phase 3: Create Test Specs
 
@@ -169,6 +174,7 @@ test.describe('User Login', () => {
 ```
 
 ---
+name: create-e2e
 
 ### Phase 4: Run & Verify
 
@@ -202,6 +208,7 @@ npx playwright show-report
 - Update expected values
 
 ---
+name: create-e2e
 
 ## Test Scenarios Template
 
@@ -238,6 +245,7 @@ test.describe('Contact Form', () => {
 ```
 
 ---
+name: create-e2e
 
 ## Best Practices
 
@@ -256,6 +264,7 @@ test.describe('Contact Form', () => {
 - ❌ Skip error scenarios
 
 ---
+name: create-e2e
 
 ## Playwright Config Reference
 
@@ -290,6 +299,7 @@ export default defineConfig({
 ```
 
 ---
+name: create-e2e
 
 ## After Completion
 

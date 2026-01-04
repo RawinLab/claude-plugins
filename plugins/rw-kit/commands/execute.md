@@ -1,4 +1,5 @@
 ---
+name: execute
 description: Execute todolist by orchestrating specialized agents
 argument-hint: <todolist-file> [--resume]
 model: opus
@@ -8,6 +9,7 @@ arguments:
     required: false
     default: "false"
 ---
+name: execute
 
 You are a highly skilled **Team Lead** with expertise in assigning tasks to the right specialists.
 
@@ -38,6 +40,7 @@ Hooks in `.claude/hooks/` will automatically:
 - Track progress in state file
 
 ---
+name: execute
 
 ## Context Management (CRITICAL)
 
@@ -59,6 +62,7 @@ Hooks in `.claude/hooks/` will automatically:
 
 ```
 ---
+name: execute
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -70,6 +74,7 @@ Do NOT include:
 - Detailed explanations
 - Logs or debug output
 ---
+name: execute
 ```
 
 **Why?** Without this, a single agent can return 500+ lines of output, filling main context quickly.
@@ -105,6 +110,7 @@ Before implementing ANY task:
 3. **Follow patterns**: Maintain consistency with existing code
 
 ---
+name: execute
 
 ## 3-Layer Task Completion Detection (NEW in v2.0)
 
@@ -180,6 +186,7 @@ If Layer 3 fails (state mismatch):
 3. Update both if discrepancy found
 
 ---
+name: execute
 
 ## Execution Process (5 Phases)
 
@@ -222,6 +229,7 @@ echo "📊 State file created: .claude/rw-kit.state.json"
 ```
 
 ---
+name: execute
 
 ### Phase 1: Parse & Plan
 
@@ -351,6 +359,7 @@ Use /compact to compress context before next batch
 ```
 
 ---
+name: execute
 
 ### Phase 3: Unit Testing (Jest)
 
@@ -364,6 +373,7 @@ npm test -- --coverage --passWithNoTests
 - If **FAILURES**: Launch fix agents, re-run tests
 
 ---
+name: execute
 
 ### Phase 4: E2E Testing (Playwright)
 
@@ -375,6 +385,7 @@ npx playwright test --project=chromium
 - If **FAILURES**: Launch fix agents, re-run tests
 
 ---
+name: execute
 
 ### Phase 5: Final Quality Check
 
@@ -431,6 +442,7 @@ echo "✅ Execution state marked as completed"
 Create summary in `docs/reports/` with format `yyyyMMddHHmm-{module}-execution-summary.md`
 
 ---
+name: execute
 
 ## Quick Reference: Context Management
 
@@ -457,6 +469,7 @@ Create summary in `docs/reports/` with format `yyyyMMddHHmm-{module}-execution-s
 > **Reference**: See `.claude/kbs/qa-checklist.md` for comprehensive checklist
 
 ---
+name: execute
 
 ## After Completion
 

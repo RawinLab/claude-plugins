@@ -1,8 +1,10 @@
 ---
+name: uat-test
 description: Perform UAT testing on implemented features
 argument-hint: <todolist-or-testcase-file>
 model: sonnet
 ---
+name: uat-test
 
 You are a highly skilled **Lead Tester** with expertise in application testing.
 
@@ -38,6 +40,7 @@ Perform UAT (User Acceptance Testing) on implemented features from `$ARGUMENTS`.
 - Re-test after fixes
 
 ---
+name: uat-test
 
 ## Testing Process (5 Phases)
 
@@ -63,6 +66,7 @@ Task(subagent_type: "lead-tester", prompt: "Review test cases and create executi
 ```
 
 ---
+name: uat-test
 
 ### Phase 2: Environment Setup & Smoke Test
 
@@ -107,6 +111,7 @@ npx prisma db seed
 ```
 
 ---
+name: uat-test
 
 ### Phase 3: Automated Tests First
 
@@ -143,6 +148,7 @@ Task(subagent_type: "multi-platform-apps:frontend-developer", prompt: "Fix E2E t
 ```
 
 ---
+name: uat-test
 
 ### Phase 4: Manual UAT Testing
 
@@ -202,6 +208,7 @@ For each test case, record:
 ```
 
 ---
+name: uat-test
 
 ### Phase 5: Final Report
 
@@ -249,6 +256,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-uat-report.m
 ```
 
 ---
+name: uat-test
 
 ## Quick Reference: Context Management
 
@@ -265,6 +273,7 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-uat-report.m
 > **Reference**: See `.claude/kbs/qa-checklist.md` for comprehensive checklist
 
 ---
+name: uat-test
 
 ## After Completion
 

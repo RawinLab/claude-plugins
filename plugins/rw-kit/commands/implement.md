@@ -1,4 +1,5 @@
 ---
+name: implement
 description: Full workflow for new features, bug fixes, or enhancements (type: feature|fix|enhancement)
 argument-hint: <feature-name> <type> [--auto-answer] [--resume]
 model: opus
@@ -12,6 +13,7 @@ arguments:
     required: false
     default: "false"
 ---
+name: implement
 
 You are a highly skilled **Team Lead** orchestrating the full implementation workflow.
 
@@ -39,6 +41,7 @@ If `--resume` is true and state file exists:
 3. Continue from resume point
 
 ---
+name: implement
 
 ## Process Overview
 
@@ -52,6 +55,7 @@ If `--resume` is true and state file exists:
 ```
 
 ---
+name: implement
 
 ## Phase 1: Create Requirement
 
@@ -96,6 +100,7 @@ Write({
 ```
 
 ---
+name: implement
 
 ## Phase 2: Plan Module
 
@@ -108,6 +113,7 @@ Task({
   prompt: `Search codebase for existing implementations related to: {feature}
 
 ---
+name: implement
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -121,6 +127,7 @@ Task({
   prompt: `Analyze requirements for: {feature}
 
 ---
+name: implement
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -134,6 +141,7 @@ Task({
   prompt: `Design technical architecture for: {feature}
 
 ---
+name: implement
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -174,6 +182,7 @@ Write({
 ```
 
 ---
+name: implement
 
 ## Phase 3: Convert to TodoList
 
@@ -198,6 +207,7 @@ Write({
 ```
 
 ---
+name: implement
 
 ## Phase 4: Execute Tasks
 
@@ -220,6 +230,7 @@ for (task of batch.tasks.slice(0, 7)) {
     prompt: `${task.description}
 
 ---
+name: implement
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -247,6 +258,7 @@ Edit({
 ```
 
 ---
+name: implement
 
 ## Phase 5: Test & Verify
 
@@ -272,6 +284,7 @@ curl -f http://localhost:{WEB_PORT}
 Launch fix agents in background, re-test until all pass.
 
 ---
+name: implement
 
 ## Phase 6: Completion
 
@@ -311,6 +324,7 @@ git commit -m "{type}({module}): implement {feature-name}"
 ```
 
 ---
+name: implement
 
 ## Quick Reference
 
