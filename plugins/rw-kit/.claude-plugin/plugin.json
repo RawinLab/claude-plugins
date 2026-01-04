@@ -20,17 +20,17 @@
     "task-tool"
   ],
   "commands": [
-    "./commands/project/clarify.md",
-    "./commands/project/analyze.md",
-    "./commands/project/plan-module.md",
-    "./commands/project/plan-to-todolist.md",
-    "./commands/project/execute.md",
-    "./commands/project/implement.md",
-    "./commands/project/create-tests.md",
-    "./commands/project/create-e2e.md",
-    "./commands/project/test-coverage.md",
-    "./commands/project/uat-test.md",
-    "./commands/project/qa-review.md"
+    "./commands/clarify.md",
+    "./commands/analyze.md",
+    "./commands/plan-module.md",
+    "./commands/plan-to-todolist.md",
+    "./commands/execute.md",
+    "./commands/implement.md",
+    "./commands/create-tests.md",
+    "./commands/create-e2e.md",
+    "./commands/test-coverage.md",
+    "./commands/uat-test.md",
+    "./commands/qa-review.md"
   ],
   "agents": [
     "./agents/sa-analyst.md",
