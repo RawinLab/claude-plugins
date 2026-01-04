@@ -16,6 +16,7 @@
 # Install any plugin
 /plugin install rw-telegram
 /plugin install rw-speckit-orchestrator
+/plugin install rw-kit
 ```
 
 ---
@@ -26,6 +27,7 @@
 |--------|---------|-------------|
 | [rw-telegram](./plugins/rw-telegram) | v1.1 | Bidirectional Telegram with verbose/summary modes, questions, remote control |
 | [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v3.1 | Task Tool based Spec-Kit orchestrator with full testing pipeline |
+| [rw-kit](./plugins/rw-kit) | v2.0 | Multi-agent orchestration framework with 6-phase workflow |
 
 ---
 
@@ -83,6 +85,37 @@ Orchestrator → Task Tool → Worker Agent → Subagents
 
 ---
 
+### rw-kit
+
+Multi-agent orchestration framework for complete software development lifecycle:
+
+- **6-Phase Workflow** - Clarify → Plan → TodoList → Analyze → Execute → Test/QA
+- **5 Custom Agents** - SA-Analyst, Tech Lead, Team Lead, Lead Tester, QA Lead
+- **11 Commands** - Full development lifecycle coverage
+- **3-Layer Verification** - Agent output + File existence + State sync
+- **Parallel Execution** - Batch-based with context management
+- **Auto-Answer** - Unattended operation with hooks
+
+**Workflow:**
+```
+/rw-kit:clarify → /rw-kit:plan-module → /rw-kit:execute → /rw-kit:qa-review
+```
+
+**Quick Start:**
+```bash
+# Full automated workflow
+/rw-kit:implement user-authentication feature
+
+# Or step-by-step
+/rw-kit:clarify requirements/01-auth.md
+/rw-kit:plan-module requirements/01-auth-clarified.md
+/rw-kit:execute plans/01-1-auth-todolist.md
+```
+
+[View Documentation](./plugins/rw-kit/README.md)
+
+---
+
 ## Configuration
 
 ### rw-telegram
@@ -117,6 +150,19 @@ specify --version
 Other requirements:
 - jq (for state file parsing)
 - gh CLI (for PR creation)
+
+### rw-kit
+
+No external dependencies required. State is managed in:
+```
+.claude/rw-kit.state.json
+```
+
+Default tech stack (configurable):
+- Frontend: Next.js, Shadcn/ui, Zustand
+- Backend: NestJS, REST
+- Database: PostgreSQL/MySQL, Prisma
+- Testing: Jest (80%+), Playwright
 
 ---
 
