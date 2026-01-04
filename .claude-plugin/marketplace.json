@@ -16,9 +16,16 @@
     },
     {
       "name": "rw-speckit-orchestrator",
-      "version": "1.0.0",
+      "version": "3.1.0",
       "source": "./plugins/rw-speckit-orchestrator",
       "description": "Automated workflow orchestrator for Spec-Kit driven development with parallel workers and guaranteed completion",
+      "category": "workflow"
+    },
+    {
+      "name": "rw-kit",
+      "version": "2.0.0",
+      "source": "./plugins/rw-kit",
+      "description": "Multi-Agent Orchestration Framework - 6-phase workflow from requirements to production-ready code",
       "category": "workflow"
     }
   ]
