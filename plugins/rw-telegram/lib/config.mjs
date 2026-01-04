@@ -21,7 +21,9 @@ const DEFAULT_CONFIG = {
     on_session_end: true,
     on_error: true
   },
-  ask_via_telegram: true,
+  // Deprecated: ask_via_telegram - now using notify-only mode
+  // Questions are answered in Console, Telegram just gets notification
+  ask_via_telegram: false,
   // Verbose mode: true = send all events formatted, false = summary only
   verbose_mode: false
 };

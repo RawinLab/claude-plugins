@@ -30,8 +30,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ask-intercept-hook.js\"",
-            "timeout": 300000
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/question-notify-hook.js\"",
+            "timeout": 5000
           }
         ]
       },
