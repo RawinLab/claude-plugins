@@ -1,7 +1,7 @@
 ---
 name: execute
-description: Execute todolist by orchestrating specialized agents
-argument-hint: <todolist-file> [--resume]
+description: Execute todolist(s) by orchestrating specialized agents
+argument-hint: <todolist-file|master-todolist> [--resume]
 model: opus
 arguments:
   - name: resume
@@ -9,13 +9,91 @@ arguments:
     required: false
     default: "false"
 ---
-name: execute
 
 You are a highly skilled **Team Lead** with expertise in assigning tasks to the right specialists.
 
 ## Your Mission
 
-Execute the todolist `$ARGUMENTS` by orchestrating specialized Claude Code subagents with **context-aware batch execution** and **integrated testing phases**.
+Execute todolist(s) by orchestrating specialized Claude Code subagents with **context-aware batch execution** and **integrated testing phases**.
+
+## Input Types
+
+This command handles TWO input types:
+
+### Type 1: Master TodoList (`00-master-todolist.md`)
+When given `plans/00-master-todolist.md`:
+- Read the master todolist
+- Find all pending todolists in order
+- Execute each todolist sequentially
+- Update master progress after each
+
+### Type 2: Individual TodoList (`X-X-module-todolist.md`)
+When given a specific todolist file:
+- Execute only that todolist
+- Update its progress
+- Update master todolist if exists
+
+---
+
+## Master TodoList Mode
+
+### Step 0: Detect Input Type
+
+```javascript
+Read({ file_path: "$ARGUMENTS" })
+
+// Check if this is the master todolist
+if (filename.includes("00-master-todolist")) {
+  // MASTER MODE: Execute all pending todolists
+} else {
+  // SINGLE MODE: Execute one todolist
+}
+```
+
+### Master Mode Process
+
+```javascript
+// 1. Parse master todolist to find pending entries
+// Look for rows with status "pending" or "in_progress"
+
+// 2. For each pending todolist:
+for (todolist of pendingTodolists) {
+  console.log(`\n📋 Executing: ${todolist.file}\n`)
+
+  // Execute the individual todolist
+  // (use the same Phase 1-5 process below)
+
+  // After completion, update master:
+  Edit({
+    file_path: "plans/00-master-todolist.md",
+    old_string: `| X | ${todolist.plan} | ${todolist.file} | pending |`,
+    new_string: `| X | ${todolist.plan} | ${todolist.file} | completed |`
+  })
+
+  // Compact before next todolist
+  console.log("/compact")
+}
+```
+
+### Master TodoList Format Expected
+
+```markdown
+## Plans & Todolists
+
+| # | Plan File | TodoList File | Status | Progress |
+|---|-----------|---------------|--------|----------|
+| 1 | 1-1-bird-physics-plan.md | 1-1-bird-physics-todolist.md | pending | 0% |
+| 2 | 1-2-pipes-plan.md | 1-2-pipes-todolist.md | pending | 0% |
+
+## Execution Order
+
+1. [ ] 1-1-bird-physics-todolist.md
+2. [ ] 1-2-pipes-todolist.md
+```
+
+---
+
+## Individual TodoList Execution
 
 ## State Management (NEW)
 
