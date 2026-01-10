@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Question Notification Hook (PostToolUse)
+ * Question Notification Hook (Simplified)
  *
- * Sends a notification to Telegram when a question is asked,
- * but does NOT wait for response - user answers in Console.
+ * Sends a simple notification when a question is asked.
+ * Shows: Question header + available options
+ * User answers in Console (not via Telegram)
  */
 
 import { loadConfig, validateConfig } from '../lib/config.mjs';
-import { parseHookInput, outputHookResult } from '../lib/utils.mjs';
+import { parseHookInput, outputHookResult, getProjectName } from '../lib/utils.mjs';
 
 async function main() {
   try {
@@ -22,7 +23,7 @@ async function main() {
       return;
     }
 
-    // Get the questions from tool input
+    // Get questions from tool input
     const questions = input.tool_input?.questions;
 
     if (!questions || !Array.isArray(questions) || questions.length === 0) {
@@ -30,27 +31,31 @@ async function main() {
       return;
     }
 
-    // Format question summary for notification
-    const questionSummary = questions.map((q, i) => {
-      const opts = q.options?.map(o => `  • ${o.label}`).join('\n') || '';
-      return `❓ ${q.question}\n${opts}`;
-    }).join('\n\n');
+    // Get project name
+    const projectName = getProjectName(input.cwd);
 
-    // Send notification only (don't wait for response)
+    // Create simple message with options only
+    const q = questions[0]; // Usually just one question
+    const header = q.header || 'Question';
+    const options = q.options?.map(o => o.label).join(' | ') || '';
+
+    const message = `${header}\nOptions: ${options}`;
+
+    // Send simple notification
     try {
       await fetch(`http://127.0.0.1:${config.worker_port}/api/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'question',
-          title: '❓ Question Waiting',
-          message: `มีคำถามรออยู่ที่ Console:\n\n${questionSummary}`,
-          project: process.cwd().split('/').pop()
+          title: 'Question in Console',
+          message: message,
+          project: projectName
         }),
         signal: AbortSignal.timeout(5000)
       });
-    } catch (error) {
-      // Ignore notification errors - don't block the flow
+    } catch {
+      // Ignore errors
     }
 
     // Always continue - let Console handle the response

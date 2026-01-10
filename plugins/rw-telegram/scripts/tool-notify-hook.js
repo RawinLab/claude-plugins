@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Tool Notification Hook
+ * Tool Notification Hook (Simplified)
  *
- * Sends tool execution events to Telegram.
- * The worker will filter based on verbose_mode setting.
+ * Sends simple task completion notifications to Telegram.
+ * Only for: Bash, Task, TaskOutput
+ * NOT for: Read, Write, Edit (too noisy)
  */
 
 import { loadConfig, validateConfig } from '../lib/config.mjs';
-import { parseHookInput, outputHookResult, getProjectName, truncate } from '../lib/utils.mjs';
+import { parseHookInput, outputHookResult, getProjectName } from '../lib/utils.mjs';
 
 async function main() {
   try {
@@ -22,12 +23,17 @@ async function main() {
       return;
     }
 
-    // Get tool information from hook input
+    // Get tool information
     const toolName = input.tool_name || input.toolName;
-    const toolInput = input.tool_input || input.input;
-    const toolResult = input.tool_result || input.result;
 
     if (!toolName) {
+      outputHookResult({ continue: true });
+      return;
+    }
+
+    // Skip if not in allowed tools (extra safety)
+    const allowedTools = ['Bash', 'Task', 'TaskOutput'];
+    if (!allowedTools.includes(toolName)) {
       outputHookResult({ continue: true });
       return;
     }
@@ -35,31 +41,39 @@ async function main() {
     // Get project name
     const projectName = getProjectName(input.cwd);
 
-    // Send to worker - let worker decide based on verbose_mode
+    // Create simple message
+    let message = '';
+    if (toolName === 'Bash') {
+      const cmd = input.tool_input?.command || '';
+      const shortCmd = cmd.length > 50 ? cmd.substring(0, 50) + '...' : cmd;
+      message = `Bash: ${shortCmd}`;
+    } else if (toolName === 'Task') {
+      const desc = input.tool_input?.description || 'task';
+      message = `Task: ${desc}`;
+    } else if (toolName === 'TaskOutput') {
+      message = `TaskOutput: completed`;
+    }
+
+    // Send simple notification
     try {
       await fetch(`http://127.0.0.1:${config.worker_port}/api/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          eventType: 'tool',
-          toolName,
-          input: typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput),
-          result: truncate(typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult), 500),
-          project: projectName,
-          data: {
-            cwd: input.cwd
-          }
+          type: 'tool',
+          title: `${toolName}`,
+          message: message,
+          project: projectName
         }),
         signal: AbortSignal.timeout(3000)
       });
     } catch {
-      // Ignore notification errors - don't block Claude
+      // Ignore errors
     }
 
     outputHookResult({ continue: true });
 
   } catch (error) {
-    // On error, continue anyway
     outputHookResult({ continue: true });
   }
 }
