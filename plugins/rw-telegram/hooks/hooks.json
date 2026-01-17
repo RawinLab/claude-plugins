@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Analyze this session to determine notification category. Choose ONE: 'stop' (task complete), 'review' (read-only analysis), 'limit' (context limit reached), 'error' (actual API error occurred - NOT when discussing/fixing errors in code). Output JSON only: {\"category\": \"...\", \"summary\": \"one line summary\"}",
+            "prompt": "Analyze this session to determine notification category. Choose ONE: 'stop' (task complete), 'review' (read-only analysis), 'limit' (context limit reached), 'error' (actual API error occurred - NOT when discussing/fixing errors in code). Output JSON only: {\"ok\": true, \"category\": \"...\", \"summary\": \"one line summary\"}",
             "timeout": 10000
           },
           {
