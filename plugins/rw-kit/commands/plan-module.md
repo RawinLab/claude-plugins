@@ -193,8 +193,50 @@ For EACH sub-module, create a DEDICATED plan file that includes:
 
 #### Test Cases
 - Unit test scenarios (Jest)
+- Integration test scenarios (real DB)
 - E2E test scenarios (Playwright)
 - Edge cases to test
+
+#### Test Data Requirements (CRITICAL)
+Plan seed data needed for testing:
+
+| Data Type | Example | Used For |
+|-----------|---------|----------|
+| Valid user | `test@example.com` / `Test123!` | Login, auth flows |
+| Admin user | `admin@example.com` | Admin features |
+| Edge cases | User with no orders | Empty states |
+| Error states | Expired subscription | Error handling |
+
+**Seed Data Checklist**:
+- [ ] Users with known credentials
+- [ ] Related data (orders, products for user)
+- [ ] Edge case entities (empty, suspended, expired)
+- [ ] Data for permission testing (admin vs user)
+
+### Step 5.5: Plan Test Data (Seed Data)
+
+> **CRITICAL**: Plan seed data BEFORE implementation to enable integration testing.
+
+For each module, define required test data:
+
+```markdown
+## Test Data Requirements
+
+### Users
+| ID | Email | Password | Role | Purpose |
+|----|-------|----------|------|---------|
+| test-user-001 | test@example.com | Test123!@# | USER | Standard user flows |
+| test-admin-001 | admin@example.com | Admin123!@# | ADMIN | Admin features |
+| test-empty-001 | empty@example.com | Empty123!@# | USER | Edge case: no data |
+
+### Related Data
+| Entity | ID | Belongs To | Purpose |
+|--------|----|-----------| --------|
+| Order | test-order-001 | test-user-001 | Completed order flow |
+| Order | test-order-002 | test-user-001 | Pending order flow |
+```
+
+**Include in plan file**: Add `## Test Data Requirements` section to each plan.
 
 ### Step 6: Save Plan Files (CRITICAL)
 

@@ -103,12 +103,36 @@ Common errors:
 | `Nest can't resolve dependencies` | Add missing module to `imports: []` |
 | `Cannot find module` | Run `npm install` |
 
-#### Step 2.2: Database Setup
+#### Step 2.2: Database & Seed Data Setup (CRITICAL)
+
+> **IMPORTANT**: UAT must use REAL seed data, not mocked data!
+
 ```bash
-# Reset test database if needed
+# Reset and seed test database
 npx prisma migrate reset --force --skip-seed
-npx prisma db seed
+npm run db:seed:test   # Use TEST seed data
 ```
+
+#### Step 2.3: Verify Seed Data Exists
+
+```javascript
+// Check seed data file exists
+Read({ file_path: "prisma/seed-test.ts" })
+```
+
+**If seed-test.ts missing**: Create it first using `/rw-kit:create-integration-tests`
+
+#### Step 2.4: Document Test Credentials
+
+Before testing, confirm available test accounts:
+
+| User Type | Email | Password | Purpose |
+|-----------|-------|----------|---------|
+| Standard | test@example.com | Test123!@# | Normal user flows |
+| Admin | admin@example.com | Admin123!@# | Admin features |
+| Edge case | empty@example.com | Empty123!@# | Empty state testing |
+
+> **Use these credentials** for manual UAT instead of creating new accounts!
 
 ---
 name: uat-test
@@ -128,8 +152,27 @@ npx playwright test --project=chromium
 ```
 
 #### Step 3.3: Analyze Automated Test Results
-- If **ALL PASS**: Proceed to manual UAT
+- If **ALL PASS**: Proceed to Step 3.4
 - If **FAILURES**: Fix first before manual testing
+
+#### Step 3.4: Verify Tests Are Meaningful (Anti-Mock Check)
+
+> **CRITICAL**: Tests that pass by mocking everything are USELESS!
+
+Check for over-mocking patterns:
+```bash
+# Search for suspicious mock patterns
+grep -r "mockResolvedValue" --include="*.spec.ts" | wc -l
+grep -r "mockReturnValue" --include="*.spec.ts" | wc -l
+```
+
+**Red Flags** (tests might be meaningless):
+- [ ] More mocks than actual assertions
+- [ ] Mocking the service/class being tested
+- [ ] Test just verifies mock was called (not real behavior)
+- [ ] No integration tests exist (`*.integration.spec.ts`)
+
+**If over-mocked**: Create integration tests with `/rw-kit:create-integration-tests`
 
 #### Step 3.4: Fix Automated Test Failures (Batch - Max 3 agents)
 ```javascript

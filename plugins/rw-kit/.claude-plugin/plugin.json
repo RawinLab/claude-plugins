@@ -27,6 +27,7 @@
     "./commands/execute.md",
     "./commands/implement.md",
     "./commands/create-tests.md",
+    "./commands/create-integration-tests.md",
     "./commands/create-e2e.md",
     "./commands/test-coverage.md",
     "./commands/uat-test.md",
