@@ -262,17 +262,100 @@ name: implement
 
 ## Phase 5: Test & Verify
 
-### Step 5.1: Run Unit Tests
+### Step 5.0: Setup Test Database & Seed Data (NEW)
+
+> **CRITICAL**: Seed data must exist before running integration or E2E tests.
+
+```javascript
+// Check if seed-test.ts exists
+Read({ file_path: "prisma/seed-test.ts" })
+```
+
+**If missing**: Create seed data file with test constants.
+See `.claude/kbs/test-writing-guide.md` → Seed Data Guide.
+
+```bash
+# Reset test database and seed with known data
+npx prisma migrate reset --force --skip-seed
+npm run db:seed:test
+```
+
+### Step 5.1: Create/Update Integration Tests (NEW)
+
+Launch agent to create integration tests for new code (uses real DB, seed data):
+
+```javascript
+Task({
+  subagent_type: "full-stack-orchestration:test-automator",
+  prompt: `Create integration tests for the new code in {feature}.
+
+  Requirements:
+  - Use real database (not mocked PrismaService)
+  - Import seed data from prisma/seed-test.ts (TEST_USERS, etc.)
+  - File naming: *.integration.spec.ts
+  - Follow patterns in .claude/kbs/test-writing-guide.md → Integration Testing section
+  - Test CRUD operations, auth flows, and edge cases with seed data
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  DONE: [1-2 sentence summary]
+  Files: [comma-separated list]
+  ---`,
+  run_in_background: true
+})
+```
+
+### Step 5.2: Create E2E Tests from User Stories (NEW)
+
+Parse user stories from requirement file and create Playwright tests:
+
+```javascript
+// Read requirement to extract user stories
+Read({ file_path: "requirements/{XX}-{feature-name}.md" })
+
+// Launch E2E test creation agent
+Task({
+  subagent_type: "full-stack-orchestration:test-automator",
+  prompt: `Create Playwright E2E tests for {feature} based on user stories.
+
+  User Stories:
+  {list extracted user stories}
+
+  Requirements:
+  - Map each user story to an E2E test file: e2e/{feature}/{story}.spec.ts
+  - Import TEST_USERS from prisma/seed-test.ts for credentials
+  - Use Page Object Model pattern
+  - Create global-setup.ts that seeds database (if not exists)
+  - Follow patterns in .claude/kbs/test-writing-guide.md → User Story → E2E Mapping
+  - NEVER hardcode credentials like test@example.com / password123
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  DONE: [1-2 sentence summary]
+  Files: [comma-separated list]
+  ---`,
+  run_in_background: true
+})
+```
+
+### Step 5.3: Run Unit Tests
 ```bash
 npm test -- --coverage
 ```
 
-### Step 5.2: Run E2E Tests
+### Step 5.4: Run Integration Tests
 ```bash
-npx playwright test --project=chromium
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec"
 ```
 
-### Step 5.3: Smoke Test (MANDATORY)
+### Step 5.5: Run E2E Tests
+```bash
+npm run db:seed:test && npx playwright test --project=chromium
+```
+
+### Step 5.6: Smoke Test (MANDATORY)
 ```bash
 npm run dev &
 sleep 15
@@ -280,7 +363,26 @@ curl -f http://localhost:{API_PORT}/api/health
 curl -f http://localhost:{WEB_PORT}
 ```
 
-### Step 5.4: Fix Any Failures
+### Step 5.7: Full-Stack Verification
+
+Verify all 3 test levels pass:
+```bash
+# Unit tests (mocked dependencies)
+npm test -- --coverage
+
+# Integration tests (real database + seed data)
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec"
+
+# E2E tests (full browser + seed data)
+npm run db:seed:test && npx playwright test --project=chromium
+```
+
+Coverage targets:
+- Unit tests: 80%+ coverage
+- Integration tests: Key services covered
+- E2E tests: All user stories have corresponding test files
+
+### Step 5.8: Fix Any Failures
 Launch fix agents in background, re-test until all pass.
 
 ---
@@ -304,7 +406,13 @@ Write({
 
 ## Tests
 - Unit Tests: {X} passing
-- E2E Tests: {X} passing
+- Integration Tests: {X} passing (real DB + seed data)
+- E2E Tests: {X} passing (user story-driven)
+- Coverage: {X}%
+
+## User Story → E2E Coverage
+- Total User Stories: {X}
+- E2E Tests Created: {X}
 - Coverage: {X}%
 
 ## Smoke Test
@@ -333,7 +441,12 @@ name: implement
 📝 Phase 2: Plan Module (parallel agents)
 📊 Phase 3: Convert to TodoList
 📦 Phase 4: Execute (batch + minimal output + compact)
-🧪 Phase 5: Test (unit → E2E → smoke)
+🌱 Phase 5.0: Seed Data Setup
+🔗 Phase 5.1: Integration Tests (real DB)
+🎭 Phase 5.2: E2E Tests (user story → Playwright)
+🧪 Phase 5.3-5.5: Unit → Integration → E2E test runs
+🚀 Phase 5.6: Smoke Test (MANDATORY)
+📊 Phase 5.7: Full-Stack Verification
 ✅ Phase 6: Complete (report + commit)
 ```
 

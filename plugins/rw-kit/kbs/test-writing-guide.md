@@ -6,7 +6,8 @@
 
 Testing strategy:
 - **Unit Tests**: Jest (80%+ coverage required)
-- **E2E Tests**: Playwright (cross-browser testing)
+- **Integration Tests**: Jest + Real Database (seed data, no mocking)
+- **E2E Tests**: Playwright (user story-driven, seed data)
 
 ---
 
@@ -331,89 +332,512 @@ describe('useProducts', () => {
 
 ---
 
+## Integration Testing (Jest + Real Database)
+
+### File Structure
+
+```
+apps/
+  api/
+    src/
+      auth/
+        auth.service.ts
+        auth.service.spec.ts            ← Unit test (mocked)
+        auth.service.integration.spec.ts ← Integration test (real DB)
+      products/
+        products.service.integration.spec.ts
+```
+
+### Naming Convention
+
+| Test Type | File Pattern | Example |
+|-----------|-------------|---------|
+| Integration | `*.integration.spec.ts` | `auth.service.integration.spec.ts` |
+
+### When to Use Integration Tests
+
+- Testing database operations (CRUD) with real Prisma queries
+- Testing service methods that involve multiple database tables
+- Testing transactions, cascading deletes, unique constraints
+- Testing seed data is correctly structured
+
+### Integration Test Template
+
+```typescript
+// apps/api/src/auth/auth.service.integration.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { AuthService } from './auth.service';
+import { PrismaService } from '@project/database';
+import { TEST_USERS, seedTestDatabase, cleanupTestDatabase } from '../../../prisma/seed-test';
+
+describe('AuthService (Integration)', () => {
+  let service: AuthService;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AuthService, PrismaService],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+    prisma = module.get<PrismaService>(PrismaService);
+
+    // Seed the database with known test data
+    await seedTestDatabase(prisma);
+  });
+
+  afterAll(async () => {
+    await cleanupTestDatabase(prisma);
+    await prisma.$disconnect();
+  });
+
+  describe('login', () => {
+    it('should authenticate with seeded test user credentials', async () => {
+      const result = await service.login({
+        email: TEST_USERS.standard.email,
+        password: TEST_USERS.standard.password,
+      });
+
+      expect(result).toHaveProperty('accessToken');
+      expect(result.user.email).toBe(TEST_USERS.standard.email);
+    });
+
+    it('should reject invalid password for seeded user', async () => {
+      await expect(
+        service.login({
+          email: TEST_USERS.standard.email,
+          password: 'wrong-password',
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('register', () => {
+    it('should reject duplicate email from seed data', async () => {
+      await expect(
+        service.register({
+          email: TEST_USERS.standard.email,
+          password: 'NewPassword123!',
+          name: 'Duplicate User',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should create user and persist to real database', async () => {
+      const newUser = await service.register({
+        email: 'integration-test@example.com',
+        password: 'IntegrationTest123!',
+        name: 'Integration Test User',
+      });
+
+      // Verify in database
+      const dbUser = await prisma.user.findUnique({
+        where: { email: 'integration-test@example.com' },
+      });
+      expect(dbUser).not.toBeNull();
+      expect(dbUser!.name).toBe('Integration Test User');
+    });
+  });
+});
+```
+
+### Setup/Teardown Patterns
+
+```typescript
+// Pattern 1: beforeAll/afterAll for read-heavy tests
+beforeAll(async () => { await seedTestDatabase(prisma); });
+afterAll(async () => { await cleanupTestDatabase(prisma); });
+
+// Pattern 2: beforeEach/afterEach for write-heavy tests (each test gets clean state)
+beforeEach(async () => { await seedTestDatabase(prisma); });
+afterEach(async () => { await cleanupTestDatabase(prisma); });
+
+// Pattern 3: Transaction rollback (fastest, no cleanup needed)
+beforeEach(async () => {
+  await prisma.$executeRaw`BEGIN`;
+});
+afterEach(async () => {
+  await prisma.$executeRaw`ROLLBACK`;
+});
+```
+
+### Running Integration Tests
+
+```bash
+# Run integration tests only
+npm test -- --testPathPattern="integration.spec"
+
+# Run with test database
+DATABASE_URL="postgresql://test:test@localhost:5432/testdb" npm test -- --testPathPattern="integration.spec"
+```
+
+---
+
+## Seed Data Guide
+
+### Purpose
+
+Seed data provides **predictable, known test data** that enables:
+- Integration tests to query real data without mocking
+- E2E tests to log in with known credentials
+- UAT testing with realistic scenarios
+
+### Seed File Location
+
+```
+prisma/
+  seed.ts           ← Production seed (optional)
+  seed-test.ts      ← Test seed data (REQUIRED for testing)
+```
+
+### Seed Data Design Principles
+
+1. **Predictable IDs**: Use known IDs (e.g., `test-user-001`) so tests can reference them
+2. **Known Credentials**: Passwords that tests can use without discovery
+3. **Edge Cases**: Include empty states, expired data, boundary values
+4. **Role Coverage**: Users for each role (admin, user, viewer)
+5. **Relationship Coverage**: Related data (user → orders → items)
+6. **Idempotent**: Running seed twice produces same state (use upsert)
+
+### Seed Data Constants
+
+```typescript
+// prisma/seed-test.ts
+
+// ─── Test User Constants ──────────────────────────────
+export const TEST_USERS = {
+  standard: {
+    id: 'test-user-001',
+    email: 'test@example.com',
+    password: 'Test123!@#',        // Plain text (for test login)
+    name: 'Test User',
+    role: 'USER',
+  },
+  admin: {
+    id: 'test-admin-001',
+    email: 'admin@example.com',
+    password: 'Admin123!@#',
+    name: 'Admin User',
+    role: 'ADMIN',
+  },
+  empty: {
+    id: 'test-empty-001',
+    email: 'empty@example.com',
+    password: 'Empty123!@#',
+    name: 'Empty User',
+    role: 'USER',
+  },
+} as const;
+
+// ─── Test Data Constants ──────────────────────────────
+export const TEST_PRODUCTS = {
+  active: {
+    id: 'test-product-001',
+    name: 'Test Product',
+    price: 29.99,
+    status: 'ACTIVE',
+  },
+  outOfStock: {
+    id: 'test-product-002',
+    name: 'Out of Stock Product',
+    price: 49.99,
+    status: 'OUT_OF_STOCK',
+  },
+} as const;
+
+// ─── Seed Function ────────────────────────────────────
+export async function seedTestDatabase(prisma: PrismaService) {
+  // Users (upsert for idempotency)
+  for (const user of Object.values(TEST_USERS)) {
+    const hashedPassword = await bcrypt.hash(user.password, 10);
+    await prisma.user.upsert({
+      where: { id: user.id },
+      update: {},
+      create: {
+        id: user.id,
+        email: user.email,
+        password: hashedPassword,
+        name: user.name,
+        role: user.role,
+      },
+    });
+  }
+
+  // Products
+  for (const product of Object.values(TEST_PRODUCTS)) {
+    await prisma.product.upsert({
+      where: { id: product.id },
+      update: {},
+      create: product,
+    });
+  }
+}
+
+// ─── Cleanup Function ─────────────────────────────────
+export async function cleanupTestDatabase(prisma: PrismaService) {
+  // Delete in reverse dependency order
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.product.deleteMany({});
+  await prisma.user.deleteMany({});
+}
+```
+
+### Using Seed Data in Tests
+
+```typescript
+// Integration test
+import { TEST_USERS, seedTestDatabase } from '../../../prisma/seed-test';
+
+it('should find user by email', async () => {
+  const user = await service.findByEmail(TEST_USERS.standard.email);
+  expect(user).not.toBeNull();
+  expect(user!.name).toBe(TEST_USERS.standard.name);
+});
+```
+
+```typescript
+// E2E test
+import { TEST_USERS } from '../../prisma/seed-test';
+
+test('should login with seed user', async ({ page }) => {
+  await loginPage.login(TEST_USERS.standard.email, TEST_USERS.standard.password);
+  await expect(page).toHaveURL('/dashboard');
+});
+```
+
+### Seed Data Commands
+
+```bash
+# Seed test database
+npx ts-node prisma/seed-test.ts
+
+# Or via package.json script
+npm run db:seed:test
+
+# Reset + seed (clean slate)
+npx prisma migrate reset --force --skip-seed && npm run db:seed:test
+```
+
+---
+
+## User Story → E2E Test Mapping
+
+### Concept
+
+Every user story in requirements should have a corresponding E2E test that **proves the story works** with real data. This creates traceability from requirement → test.
+
+### Mapping Convention
+
+| User Story | E2E Test File | Test Scenarios |
+|------------|---------------|----------------|
+| US-001: User can login | `e2e/auth/login.spec.ts` | valid login, invalid password, empty fields |
+| US-002: User can register | `e2e/auth/register.spec.ts` | valid registration, duplicate email, weak password |
+| US-003: User can view products | `e2e/products/catalog.spec.ts` | product list, pagination, empty state |
+| US-004: User can search products | `e2e/products/search.spec.ts` | keyword search, no results, filters |
+
+### File Naming Convention
+
+```
+e2e/{feature}/{story-keyword}.spec.ts
+```
+
+Examples:
+- `e2e/auth/login.spec.ts` → US about logging in
+- `e2e/auth/register.spec.ts` → US about registration
+- `e2e/products/catalog.spec.ts` → US about viewing products
+- `e2e/checkout/payment.spec.ts` → US about making payments
+
+### Template: Converting User Story to E2E Test
+
+**User Story**: "As a user, I want to login so that I can access my dashboard"
+
+```typescript
+// e2e/auth/login.spec.ts
+// Maps to: US-001 - User can login
+import { test, expect } from '@playwright/test';
+import { LoginPage } from '../pages/LoginPage';
+import { TEST_USERS } from '../../prisma/seed-test';
+
+test.describe('US-001: User Login', () => {
+  let loginPage: LoginPage;
+
+  test.beforeEach(async ({ page }) => {
+    loginPage = new LoginPage(page);
+    await loginPage.goto();
+  });
+
+  // Happy path: proves the user story works
+  test('should login with valid credentials and reach dashboard', async ({ page }) => {
+    await loginPage.login(TEST_USERS.standard.email, TEST_USERS.standard.password);
+    await expect(page).toHaveURL(/dashboard/);
+    await expect(page.getByText(/welcome/i)).toBeVisible();
+  });
+
+  // Error path: validates error handling
+  test('should show error for invalid credentials', async () => {
+    await loginPage.login(TEST_USERS.standard.email, 'wrong-password');
+    await loginPage.expectErrorMessage('Invalid credentials');
+  });
+
+  // Edge case: empty form submission
+  test('should show validation errors for empty fields', async () => {
+    await loginPage.submitButton.click();
+    await expect(loginPage.page.getByText(/email is required/i)).toBeVisible();
+  });
+});
+```
+
+### Traceability Check
+
+After writing E2E tests, verify coverage:
+1. Read requirement file → extract all user stories
+2. List all `e2e/**/*.spec.ts` files
+3. Check each user story has at least one test file
+4. Report any gaps
+
+---
+
 ## E2E Testing (Playwright)
 
 ### File Structure
 
 ```
 e2e/
-  auth/
+  pages/            # Page Object classes
+    BasePage.ts
+    LoginPage.ts
+    DashboardPage.ts
+  fixtures/         # Shared test fixtures
+    auth.fixture.ts
+  auth/             # Feature-based test folders (mapped to user stories)
     login.spec.ts
     register.spec.ts
   products/
     catalog.spec.ts
     search.spec.ts
-  checkout/
-    cart.spec.ts
-    payment.spec.ts
-  global-setup.ts
-  global-teardown.ts
+  global-setup.ts   # Seeds database before all E2E tests
+  global-teardown.ts # Cleans up after all E2E tests
 ```
 
-### E2E Test Template
+### Global Setup (Seed Data)
+
+```typescript
+// e2e/global-setup.ts
+import { PrismaClient } from '@prisma/client';
+import { seedTestDatabase, TEST_USERS } from '../prisma/seed-test';
+
+async function globalSetup() {
+  const prisma = new PrismaClient();
+
+  try {
+    // Seed database with known test data
+    await seedTestDatabase(prisma);
+    console.log('✅ Test database seeded');
+
+    // Verify health endpoints
+    const apiResponse = await fetch(`${process.env.BASE_URL || 'http://localhost:3910'}/api/health`);
+    if (!apiResponse.ok) throw new Error('API health check failed');
+    console.log('✅ API health check passed');
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export default globalSetup;
+```
+
+### Global Teardown
+
+```typescript
+// e2e/global-teardown.ts
+import { PrismaClient } from '@prisma/client';
+import { cleanupTestDatabase } from '../prisma/seed-test';
+
+async function globalTeardown() {
+  const prisma = new PrismaClient();
+
+  try {
+    await cleanupTestDatabase(prisma);
+    console.log('✅ Test database cleaned up');
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export default globalTeardown;
+```
+
+### Playwright Config with Seed Data
+
+```typescript
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './e2e',
+  globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
+  fullyParallel: true,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    baseURL: 'http://localhost:3910',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3910',
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+### E2E Test Template (with Seed Data)
+
 ```typescript
 // e2e/auth/login.spec.ts
 import { test, expect } from '@playwright/test';
+import { LoginPage } from '../pages/LoginPage';
+import { TEST_USERS } from '../../prisma/seed-test';
 
 test.describe('User Login', () => {
+  let loginPage: LoginPage;
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
+    loginPage = new LoginPage(page);
+    await loginPage.goto();
   });
 
-  test('should display login form', async ({ page }) => {
-    await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+  test('should login with valid seed credentials', async ({ page }) => {
+    await loginPage.login(TEST_USERS.standard.email, TEST_USERS.standard.password);
+    await expect(page).toHaveURL(/dashboard/);
   });
 
-  test('should login with valid credentials', async ({ page }) => {
-    // Fill form
-    await page.getByLabel(/email/i).fill('test@example.com');
-    await page.getByLabel(/password/i).fill('password123');
-
-    // Submit
-    await page.getByRole('button', { name: /sign in/i }).click();
-
-    // Verify redirect to dashboard
-    await expect(page).toHaveURL('/dashboard');
-    await expect(page.getByText(/welcome/i)).toBeVisible();
+  test('should show error for invalid credentials', async () => {
+    await loginPage.login('wrong@example.com', 'wrongpassword');
+    await loginPage.expectErrorMessage('Invalid credentials');
   });
 
-  test('should show error for invalid credentials', async ({ page }) => {
-    await page.getByLabel(/email/i).fill('wrong@example.com');
-    await page.getByLabel(/password/i).fill('wrongpassword');
-    await page.getByRole('button', { name: /sign in/i }).click();
-
-    await expect(page.getByText(/invalid credentials/i)).toBeVisible();
-    await expect(page).toHaveURL('/login');
-  });
-
-  test('should show validation error for empty fields', async ({ page }) => {
-    await page.getByRole('button', { name: /sign in/i }).click();
-
-    await expect(page.getByText(/email is required/i)).toBeVisible();
-    await expect(page.getByText(/password is required/i)).toBeVisible();
-  });
-
-  test('should redirect authenticated user to dashboard', async ({ page, context }) => {
-    // Set auth token
-    await context.addCookies([{
-      name: 'auth_token',
-      value: 'valid_token',
-      domain: 'localhost',
-      path: '/',
-    }]);
-
-    await page.goto('/login');
-    await expect(page).toHaveURL('/dashboard');
+  test('should show validation error for empty fields', async () => {
+    await loginPage.submitButton.click();
+    await expect(loginPage.page.getByText(/email is required/i)).toBeVisible();
   });
 });
 ```
 
-### Page Object Model (Recommended)
+### Page Object Model (with Seed Data)
+
 ```typescript
 // e2e/pages/LoginPage.ts
-import { Page, Locator } from '@playwright/test';
+import { Page, Locator, expect } from '@playwright/test';
 
 export class LoginPage {
   readonly page: Page;
@@ -439,21 +863,22 @@ export class LoginPage {
     await this.passwordInput.fill(password);
     await this.submitButton.click();
   }
+
+  async expectErrorMessage(message: string) {
+    await expect(this.errorMessage).toContainText(message);
+  }
 }
-
-// Usage in test
-// e2e/auth/login.spec.ts
-import { test, expect } from '@playwright/test';
-import { LoginPage } from '../pages/LoginPage';
-
-test('should login successfully', async ({ page }) => {
-  const loginPage = new LoginPage(page);
-  await loginPage.goto();
-  await loginPage.login('test@example.com', 'password123');
-
-  await expect(page).toHaveURL('/dashboard');
-});
 ```
+
+### Test Data Reference (Which Seed User for Which Scenario)
+
+| Scenario | Seed User | Why |
+|----------|-----------|-----|
+| Normal login/dashboard | `TEST_USERS.standard` | Has complete profile and related data |
+| Admin features | `TEST_USERS.admin` | Has ADMIN role permissions |
+| Empty states | `TEST_USERS.empty` | No orders/products, tests empty UI |
+| Product browsing | Any user | Products seeded via `TEST_PRODUCTS` |
+| Permission denied | `TEST_USERS.standard` accessing admin routes | Verifies RBAC |
 
 ---
 
@@ -478,8 +903,23 @@ npm test -- apps/api/src/auth/auth.service.spec.ts
 npm test -- --watch
 ```
 
+### Integration Tests
+```bash
+# Run integration tests only
+npm test -- --testPathPattern="integration.spec"
+
+# Run with test database URL
+DATABASE_URL="postgresql://test:test@localhost:5432/testdb" npm test -- --testPathPattern="integration.spec"
+
+# Seed + run integration tests
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec"
+```
+
 ### E2E Tests
 ```bash
+# Seed database first, then run E2E
+npm run db:seed:test && npx playwright test
+
 # Run all E2E tests
 npx playwright test
 
@@ -507,10 +947,12 @@ npx playwright show-report
 
 | Project | Minimum Coverage |
 |---------|------------------|
-| API | 85% |
+| API (Unit) | 85% |
+| API (Integration) | Key services covered |
 | Web | 80% |
 | Database | 90% |
 | Config | 85% |
+| E2E | All user stories have tests |
 
 ---
 
@@ -519,7 +961,10 @@ npx playwright show-report
 ### DO:
 - Use descriptive test names (`should register user with valid data`)
 - Follow AAA pattern (Arrange, Act, Assert)
-- Mock external dependencies
+- Mock external dependencies in **unit tests only**
+- Use real database with seed data in **integration tests**
+- Use seed data credentials in **E2E tests** (import `TEST_USERS`)
+- Map each user story to at least one E2E test file
 - Test edge cases and error scenarios
 - Use `beforeEach` for common setup
 - Clear mocks in `afterEach`
@@ -528,10 +973,12 @@ npx playwright show-report
 ### DON'T:
 - Test implementation details
 - Use real API calls in unit tests
+- Hardcode credentials in E2E tests (use `TEST_USERS` from seed data)
 - Share state between tests
 - Use hardcoded timeouts (use `waitFor` instead)
 - Skip tests without reason
 - Write flaky tests
+- Mock the database in integration tests
 
 ---
 
@@ -543,9 +990,17 @@ npm test                              # Run all
 npm test -- --coverage               # With coverage
 npm test -- --watch                  # Watch mode
 
-# E2E Tests
+# Integration Tests
+npm run db:seed:test                 # Seed test DB
+npm test -- --testPathPattern="integration.spec"  # Run integration
+
+# E2E Tests (seed data required)
+npm run db:seed:test                 # Seed before E2E
 npx playwright test                  # Run all
 npx playwright test --project=chromium  # Specific browser
 npx playwright test --headed         # See browser
 npx playwright test --debug          # Debug mode
+
+# Full Test Pipeline
+npm run db:seed:test && npm test -- --coverage && npx playwright test
 ```

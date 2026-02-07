@@ -113,7 +113,7 @@ npx prisma migrate reset --force --skip-seed
 npm run db:seed:test   # Use TEST seed data
 ```
 
-#### Step 2.3: Verify Seed Data Exists
+#### Step 2.3: Verify Seed Data Exists and is Complete
 
 ```javascript
 // Check seed data file exists
@@ -121,6 +121,20 @@ Read({ file_path: "prisma/seed-test.ts" })
 ```
 
 **If seed-test.ts missing**: Create it first using `/rw-kit:create-integration-tests`
+
+**Verify seed data covers all user stories:**
+```javascript
+// Read requirement file to extract user stories
+Glob({ pattern: "requirements/*.md" })
+
+// For each user story, verify seed data has the required entities:
+// - Login stories → TEST_USERS.standard exists
+// - Admin stories → TEST_USERS.admin exists
+// - Empty state stories → TEST_USERS.empty exists
+// - Product stories → TEST_PRODUCTS exist
+```
+
+**If seed data is incomplete**: Update `prisma/seed-test.ts` to add missing test entities for all user stories.
 
 #### Step 2.4: Document Test Credentials
 
@@ -148,7 +162,49 @@ npm test -- --coverage --passWithNoTests
 
 #### Step 3.2: Run E2E Tests
 ```bash
-npx playwright test --project=chromium
+npm run db:seed:test && npx playwright test --project=chromium
+```
+
+#### Step 3.2.5: User Story → E2E Traceability Check (NEW)
+
+> **CRITICAL**: Verify that every user story has a corresponding E2E test.
+
+```javascript
+// 1. Extract user stories from requirement file
+Read({ file_path: "$ARGUMENTS" })  // or the associated requirement file
+// Look for patterns: "As a [user], I want [X]" or "US-XXX:"
+
+// 2. List all E2E test files
+Glob({ pattern: "e2e/**/*.spec.ts" })
+
+// 3. Check coverage: each user story should have a test
+// Report format:
+```
+
+**Traceability Report:**
+```markdown
+| User Story | E2E Test File | Status |
+|------------|---------------|--------|
+| US-001: User login | e2e/auth/login.spec.ts | ✅ Covered |
+| US-002: User register | e2e/auth/register.spec.ts | ✅ Covered |
+| US-003: View products | (none) | ❌ MISSING |
+```
+
+**If gaps found**: Launch agent to create missing E2E tests before continuing:
+```javascript
+Task({
+  subagent_type: "full-stack-orchestration:test-automator",
+  prompt: `Create E2E tests for uncovered user stories: [list missing stories].
+  Import TEST_USERS from prisma/seed-test.ts. Use Page Object Model.
+  Follow patterns in .claude/kbs/test-writing-guide.md → User Story → E2E Mapping.
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  DONE: [1-2 sentence summary]
+  Files: [comma-separated list]
+  ---`,
+  run_in_background: true
+})
 ```
 
 #### Step 3.3: Analyze Automated Test Results
@@ -279,7 +335,16 @@ Create report in `docs/reports/` with format `yyyyMMddHHmm-{module}-uat-report.m
 
 ## Automated Tests
 - Unit Tests: X/Y passed (Z% coverage)
-- E2E Tests: X/Y passed
+- Integration Tests: X/Y passed (real DB + seed data)
+- E2E Tests: X/Y passed (user story-driven)
+
+## User Story → E2E Traceability
+| User Story | E2E Test File | Status |
+|------------|---------------|--------|
+| US-001: ... | e2e/.../... | ✅ Covered |
+| US-002: ... | e2e/.../... | ✅ Covered |
+
+Coverage: X/Y user stories have E2E tests (Z%)
 
 ## Manual UAT Results
 ### Feature 1: [Name]
@@ -306,11 +371,12 @@ name: uat-test
 ```
 📋 Preparation (2-3 agents) → /compact
 🚀 Smoke Test (MANDATORY) → npm run dev → Health checks
-🔧 Database Setup
+🌱 Seed Data Setup → db:seed:test → Verify completeness
 🧪 Automated Tests → Fix (3 agents) → /compact
+🔗 User Story Traceability Check → Fill gaps → /compact
 🎭 UAT Batch 1 (3 agents) → Fix → /compact
 🎭 UAT Batch 2 (3 agents) → Fix → /compact
-✅ Final Report
+✅ Final Report (includes traceability matrix)
 ```
 
 > **Reference**: See `.claude/kbs/qa-checklist.md` for comprehensive checklist
@@ -321,8 +387,10 @@ name: uat-test
 ## After Completion
 
 1. ✅ **Smoke test passed** - Application starts without runtime errors
-2. ✅ All automated tests passing
-3. ✅ All UAT test cases executed
-4. ✅ Issues found and fixed
-5. ✅ UAT report created in `docs/reports/`
-6. 📋 Ready for `/project:qa-review {module}`
+2. ✅ Seed data verified and complete for all user stories
+3. ✅ All automated tests passing (unit + integration + E2E)
+4. ✅ All user stories have corresponding E2E tests (traceability check)
+5. ✅ All UAT test cases executed
+6. ✅ Issues found and fixed
+7. ✅ UAT report created in `docs/reports/` (includes traceability matrix)
+8. 📋 Ready for `/project:qa-review {module}`

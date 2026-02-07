@@ -439,12 +439,99 @@ Use /compact to compress context before next batch
 ---
 name: execute
 
-### Phase 3: Unit Testing (Jest)
+### Phase 2.5: Seed Data Setup (NEW)
+
+> **CRITICAL**: Seed data must be ready before running integration or E2E tests.
+
+#### Step 2.5.1: Verify Seed Data Exists
+
+```javascript
+// Check if seed-test.ts exists
+Read({ file_path: "prisma/seed-test.ts" })
+```
+
+**If missing**: Launch agent to create seed data file:
+```javascript
+Task({
+  subagent_type: "backend-development:backend-architect",
+  prompt: `Create test seed data file at prisma/seed-test.ts.
+
+  Requirements:
+  - Export TEST_USERS constant with standard, admin, and empty users
+  - Export seedTestDatabase(prisma) function using upsert for idempotency
+  - Export cleanupTestDatabase(prisma) function
+  - Follow patterns in .claude/kbs/test-writing-guide.md → Seed Data Guide
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  DONE: [1-2 sentence summary]
+  Files: [comma-separated list]
+  ---`,
+  run_in_background: true
+})
+```
+
+#### Step 2.5.2: Reset and Seed Test Database
+
+```bash
+# Reset test database
+npx prisma migrate reset --force --skip-seed
+
+# Seed with known test data
+npm run db:seed:test
+
+echo "✅ Test database seeded with known data"
+```
+
+#### Step 2.5.3: Verify Seed Data
+
+```bash
+# Quick verification - check seed ran without errors
+echo "Seed data ready for integration and E2E tests"
+```
+
+---
+name: execute
+
+### Phase 3: Unit & Integration Testing
 
 After ALL implementation batches complete:
 
+#### Step 3.1: Run Unit Tests
 ```bash
 npm test -- --coverage --passWithNoTests
+```
+
+- If **ALL PASS**: Continue to integration tests
+- If **FAILURES**: Launch fix agents, re-run tests
+
+#### Step 3.2: Run Integration Tests (NEW)
+
+```bash
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec" --passWithNoTests
+```
+
+- If **integration tests don't exist**: Launch agent to create them:
+```javascript
+Task({
+  subagent_type: "full-stack-orchestration:test-automator",
+  prompt: `Create integration tests for the implemented features.
+
+  Requirements:
+  - Use real database (not mocked PrismaService)
+  - Import seed data from prisma/seed-test.ts (TEST_USERS, etc.)
+  - File naming: *.integration.spec.ts (co-located with source)
+  - Follow patterns in .claude/kbs/test-writing-guide.md → Integration Testing
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  DONE: [1-2 sentence summary]
+  Files: [comma-separated list]
+  ---`,
+  run_in_background: true
+})
 ```
 
 - If **ALL PASS**: Proceed to E2E testing
@@ -453,10 +540,50 @@ npm test -- --coverage --passWithNoTests
 ---
 name: execute
 
-### Phase 4: E2E Testing (Playwright)
+### Phase 4: E2E Testing with Seed Data
 
+> **IMPORTANT**: E2E tests must use seed data and trace to user stories.
+
+#### Step 4.1: Ensure Database is Seeded
+```bash
+npm run db:seed:test
+```
+
+#### Step 4.2: Run E2E Tests
 ```bash
 npx playwright test --project=chromium
+```
+
+#### Step 4.3: Verify User Story Coverage
+```javascript
+// Check that E2E tests exist for all user stories
+Glob({ pattern: "e2e/**/*.spec.ts" })
+Glob({ pattern: "requirements/*.md" })
+
+// Compare: each user story should have a corresponding E2E test
+```
+
+- If **E2E tests don't exist or miss user stories**: Launch agent to create them:
+```javascript
+Task({
+  subagent_type: "full-stack-orchestration:test-automator",
+  prompt: `Create E2E tests for missing user stories.
+
+  Requirements:
+  - Map each user story to e2e/{feature}/{story}.spec.ts
+  - Import TEST_USERS from prisma/seed-test.ts
+  - Use Page Object Model pattern
+  - NEVER hardcode credentials
+  - Follow patterns in .claude/kbs/test-writing-guide.md → User Story → E2E Mapping
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  DONE: [1-2 sentence summary]
+  Files: [comma-separated list]
+  ---`,
+  run_in_background: true
+})
 ```
 
 - If **ALL PASS**: Proceed to final checks
@@ -529,9 +656,10 @@ name: execute
 📦 Batch 0 (5-7 agents + MINIMAL OUTPUT) → Poll → Update TodoList → /compact
 📦 Batch 1 (5-7 agents + MINIMAL OUTPUT) → Poll → Update TodoList → /compact
 📦 Batch N (5-7 agents + MINIMAL OUTPUT) → Poll → Update TodoList → /compact
-🧪 Unit Tests → Fix → Rerun → /compact
-🎭 E2E Tests → Fix → Rerun → /compact
-🚀 Smoke Test (MANDATORY) → npm run dev → Health checks
+🌱 Phase 2.5: Seed Data Setup → db:seed:test
+🧪 Phase 3: Unit Tests → Integration Tests → Fix → Rerun → /compact
+🎭 Phase 4: E2E Tests (seed data + user story coverage) → Fix → Rerun → /compact
+🚀 Phase 5: Smoke Test (MANDATORY) → npm run dev → Health checks
 ✅ Final Static Checks → Commit → Report
 ```
 
@@ -553,10 +681,13 @@ name: execute
 
 1. ✅ All implementation tasks completed
 2. ✅ TodoList file updated (all tasks marked as `[x]`)
-3. ✅ Unit tests passing (>80% coverage)
-4. ✅ E2E tests passing
-5. ✅ **Smoke test passed** - `npm run dev` starts without errors
-6. ✅ Build and lint passing
-7. ✅ Changes committed
-8. ✅ Completion report created
-9. 📋 Ready for `/project:uat-test`
+3. ✅ Seed data created and verified (`prisma/seed-test.ts`)
+4. ✅ Unit tests passing (>80% coverage)
+5. ✅ Integration tests passing (real DB + seed data)
+6. ✅ E2E tests passing (user story-driven + seed data)
+7. ✅ All user stories have corresponding E2E tests
+8. ✅ **Smoke test passed** - `npm run dev` starts without errors
+9. ✅ Build and lint passing
+10. ✅ Changes committed
+11. ✅ Completion report created
+12. 📋 Ready for `/project:uat-test`

@@ -98,6 +98,46 @@ export class ZModule {}
 
 ---
 
+## Phase 1.5: Seed Data Verification (NEW)
+
+> **CRITICAL**: Seed data must exist and work before running integration or E2E tests!
+
+### Seed Data Checklist
+
+- [ ] `prisma/seed-test.ts` exists
+- [ ] Seed data runs without errors: `npm run db:seed:test`
+- [ ] Test credentials are documented (see table below)
+- [ ] Seed data is idempotent (can run multiple times safely)
+- [ ] Seed data covers all test scenarios (roles, edge cases)
+
+### Required Test Accounts
+
+| User Type | Email | Password | Role | Purpose |
+|-----------|-------|----------|------|---------|
+| Standard | `test@example.com` | `Test123!@#` | USER | Normal user flows |
+| Admin | `admin@example.com` | `Admin123!@#` | ADMIN | Admin features |
+| Edge case | `empty@example.com` | `Empty123!@#` | USER | Empty state testing |
+
+### Seed Data Verification Commands
+
+```bash
+# Reset and seed test database
+npx prisma migrate reset --force --skip-seed
+npm run db:seed:test
+
+# Verify seed data loaded
+npx prisma studio  # Visual check
+```
+
+### Red Flags
+
+- [ ] No `seed-test.ts` file → Must create before testing
+- [ ] Seed uses random data → Must use predictable constants
+- [ ] E2E tests hardcode credentials → Must import from `TEST_USERS`
+- [ ] No cleanup function → Must add `cleanupTestDatabase()`
+
+---
+
 ## Phase 2: Test Verification
 
 ### Unit Tests
@@ -111,21 +151,38 @@ npm test -- --coverage
 - [ ] No skipped tests without reason
 - [ ] Tests are meaningful (not just for coverage)
 
+### Integration Tests
+
+```bash
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec"
+```
+
+- [ ] Integration test files exist (`*.integration.spec.ts`)
+- [ ] Tests use real database (not mocked PrismaService)
+- [ ] Tests import seed data constants (`TEST_USERS`, etc.)
+- [ ] API endpoints return expected responses with seeded data
+- [ ] Database operations (CRUD) work correctly
+- [ ] Authentication flow works with seed credentials
+
 ### E2E Tests
 
 ```bash
-npx playwright test
+npm run db:seed:test && npx playwright test --project=chromium
 ```
 
-- [ ] All E2E tests pass
+- [ ] All E2E tests pass on chromium
+- [ ] Tests use seed data credentials (not hardcoded `test@example.com` / `password123`)
+- [ ] E2E tests import `TEST_USERS` from `prisma/seed-test`
+- [ ] Global setup seeds database before tests
+- [ ] Global teardown cleans up after tests
 - [ ] Critical user flows covered
-- [ ] Error states tested
 
-### Integration Tests
+### User Story → E2E Coverage
 
-- [ ] API endpoints return expected responses
-- [ ] Database operations work correctly
-- [ ] Authentication flow works end-to-end
+- [ ] All user stories from requirements have corresponding E2E tests
+- [ ] E2E test files follow naming convention: `e2e/{feature}/{story}.spec.ts`
+- [ ] Each E2E test file references its user story ID (e.g., `US-001`)
+- [ ] No user stories without E2E coverage (report gaps)
 
 ---
 
@@ -187,12 +244,14 @@ npx playwright test
 
 ## QA Decision Matrix
 
-| Smoke Test | Build | Tests | Decision |
-|------------|-------|-------|----------|
-| Fail | - | - | **REJECT** - Fix runtime errors first |
-| Pass | Fail | - | **REJECT** - Fix build errors |
-| Pass | Pass | Fail | **CONDITIONAL** - Assess test failures |
-| Pass | Pass | Pass | **REVIEW** - Check code quality |
+| Smoke Test | Seed Data | Build | Tests | E2E Coverage | Decision |
+|------------|-----------|-------|-------|--------------|----------|
+| Fail | - | - | - | - | **REJECT** - Fix runtime errors first |
+| Pass | Missing | - | - | - | **REJECT** - Create seed data first |
+| Pass | Pass | Fail | - | - | **REJECT** - Fix build errors |
+| Pass | Pass | Pass | Fail | - | **CONDITIONAL** - Assess test failures |
+| Pass | Pass | Pass | Pass | Gaps | **CONDITIONAL** - Add missing E2E tests |
+| Pass | Pass | Pass | Pass | Complete | **REVIEW** - Check code quality |
 
 ---
 
@@ -204,6 +263,11 @@ npm run dev                              # Start dev servers
 curl http://localhost:{API_PORT}/api/health    # Check API
 curl http://localhost:{WEB_PORT}               # Check Frontend
 
+# Seed Data
+npm run db:seed:test                     # Seed test database
+npx prisma migrate reset --force --skip-seed  # Reset DB
+npx prisma studio                        # Visual verification
+
 # Build
 npm run build                            # Production build
 npm run typecheck                        # Type check only
@@ -211,11 +275,15 @@ npm run typecheck                        # Type check only
 # Tests
 npm test                                 # Unit tests
 npm test -- --coverage                   # With coverage
-npx playwright test                      # E2E tests
+npm test -- --testPathPattern="integration.spec"  # Integration tests
+npm run db:seed:test && npx playwright test       # E2E tests (seed first!)
 
 # Lint
 npm run lint                             # ESLint
 npm run format                           # Prettier
+
+# Full Pipeline
+npm run db:seed:test && npm test -- --coverage && npx playwright test
 ```
 
 ---

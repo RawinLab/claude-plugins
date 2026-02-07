@@ -194,24 +194,42 @@ For EACH sub-module, create a DEDICATED plan file that includes:
 #### Test Cases
 - Unit test scenarios (Jest)
 - Integration test scenarios (real DB)
-- E2E test scenarios (Playwright)
+- E2E test scenarios (Playwright, user story-driven)
 - Edge cases to test
+
+#### E2E Test Scenarios (User Story → Playwright)
+
+> **CRITICAL**: Map every user story to an E2E test. This ensures requirements are verified.
+
+| User Story | E2E Test File | Scenarios | Seed Data |
+|------------|---------------|-----------|-----------|
+| US-001: User can login | `e2e/auth/login.spec.ts` | valid login, invalid password, empty fields | `TEST_USERS.standard` |
+| US-002: User can register | `e2e/auth/register.spec.ts` | valid registration, duplicate email | (new user) |
+| US-003: User can view products | `e2e/products/catalog.spec.ts` | product list, pagination, empty state | `TEST_PRODUCTS` |
+
+**For each user story, define:**
+- E2E test file location (naming: `e2e/{feature}/{story}.spec.ts`)
+- Test scenarios (happy path + error cases)
+- Which seed data is needed
+- Expected user flow (navigation path through the app)
 
 #### Test Data Requirements (CRITICAL)
 Plan seed data needed for testing:
 
 | Data Type | Example | Used For |
 |-----------|---------|----------|
-| Valid user | `test@example.com` / `Test123!` | Login, auth flows |
-| Admin user | `admin@example.com` | Admin features |
+| Valid user | `test@example.com` / `Test123!@#` | Login, auth flows |
+| Admin user | `admin@example.com` / `Admin123!@#` | Admin features |
 | Edge cases | User with no orders | Empty states |
 | Error states | Expired subscription | Error handling |
 
 **Seed Data Checklist**:
-- [ ] Users with known credentials
+- [ ] Users with known credentials (use `TEST_USERS` constants)
 - [ ] Related data (orders, products for user)
 - [ ] Edge case entities (empty, suspended, expired)
 - [ ] Data for permission testing (admin vs user)
+- [ ] Seed file: `prisma/seed-test.ts` with exported constants
+- [ ] Cleanup function: `cleanupTestDatabase()`
 
 ### Step 5.5: Plan Test Data (Seed Data)
 
