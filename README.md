@@ -27,7 +27,7 @@
 |--------|---------|-------------|
 | [rw-telegram](./plugins/rw-telegram) | v1.1 | Bidirectional Telegram with verbose/summary modes, questions, remote control |
 | [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v3.1 | Task Tool based Spec-Kit orchestrator with full testing pipeline |
-| [rw-kit](./plugins/rw-kit) | v2.0 | Multi-agent orchestration framework with 6-phase workflow |
+| [rw-kit](./plugins/rw-kit) | v2.2 | Multi-agent orchestration framework with seed data, user story E2E, and integration testing |
 
 ---
 
@@ -91,19 +91,21 @@ Multi-agent orchestration framework for complete software development lifecycle:
 
 - **6-Phase Workflow** - Clarify → Plan → TodoList → Analyze → Execute → Test/QA
 - **5 Custom Agents** - SA-Analyst, Tech Lead, Team Lead, Lead Tester, QA Lead
-- **11 Commands** - Full development lifecycle coverage
+- **12 Commands** - Full development lifecycle coverage
+- **Seed Data Pipeline** - Automatic test database seeding with `TEST_USERS` constants
+- **User Story → E2E Mapping** - Every Playwright test traces to a requirement
+- **Integration Testing** - Real database tests (no mocking)
 - **3-Layer Verification** - Agent output + File existence + State sync
 - **Parallel Execution** - Batch-based with context management
-- **Auto-Answer** - Unattended operation with hooks
 
-**Workflow:**
+**Testing Pipeline:**
 ```
-/rw-kit:clarify → /rw-kit:plan-module → /rw-kit:execute → /rw-kit:qa-review
+Seed Data → Unit Tests → Integration Tests → E2E Tests → Smoke Test → Traceability Check
 ```
 
 **Quick Start:**
 ```bash
-# Full automated workflow
+# Full automated workflow (includes seed data + all test levels)
 /rw-kit:implement user-authentication feature
 
 # Or step-by-step
@@ -162,7 +164,9 @@ Default tech stack (configurable):
 - Frontend: Next.js, Shadcn/ui, Zustand
 - Backend: NestJS, REST
 - Database: PostgreSQL/MySQL, Prisma
-- Testing: Jest (80%+), Playwright
+- Unit Testing: Jest (80%+ coverage)
+- Integration Testing: Jest + Real DB + Seed Data
+- E2E Testing: Playwright (user story-driven, seed data)
 
 ---
 
