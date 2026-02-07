@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "3.0.0",
   "session_id": "",
   "started_at": "",
   "updated_at": "",
@@ -23,7 +23,8 @@
     "in_progress": 0,
     "pending": 0,
     "failed": 0,
-    "verified": 0
+    "verified": 0,
+    "blocked": 0
   },
 
   "tasks": {},
@@ -31,6 +32,23 @@
   "batches": [],
 
   "current_batch": null,
+
+  "retry_counts": {},
+
+  "quality_gates": {
+    "unit_tests": null,
+    "integration_tests": null,
+    "e2e_tests": null,
+    "smoke_test": null,
+    "uat": null,
+    "qa_review": null
+  },
+
+  "qa_cycles": 0,
+
+  "blocked_tasks": [],
+
+  "degraded_phases": [],
 
   "resume_point": {
     "batch_id": null,

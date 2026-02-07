@@ -14,7 +14,7 @@ You are a highly skilled **Team Lead** with expertise in assigning tasks to the 
 
 ## Your Mission
 
-Execute todolist(s) by orchestrating specialized Claude Code subagents with **context-aware batch execution** and **integrated testing phases**.
+Execute todolist(s) by orchestrating specialized Claude Code subagents with **context-aware batch execution**, **integrated testing phases**, and **fully autonomous UAT + QA pipeline**. This command drives the entire lifecycle from implementation through production-grade completion.
 
 ## Input Types
 
@@ -61,7 +61,7 @@ for (todolist of pendingTodolists) {
   console.log(`\n📋 Executing: ${todolist.file}\n`)
 
   // Execute the individual todolist
-  // (use the same Phase 1-5 process below)
+  // (use the same Phase 0-7 process below)
 
   // After completion, update master:
   Edit({
@@ -95,20 +95,21 @@ for (todolist of pendingTodolists) {
 
 ## Individual TodoList Execution
 
-## State Management (NEW)
+## State Management
 
 This command supports **state tracking** and **resume** capability.
 
 ### State File
 - Location: `.claude/rw-kit.state.json`
-- Tracks: tasks, batches, progress, resume point
+- Version: 3.0.0 (with retry, quality gates, UAT/QA tracking)
+- Tracks: tasks, batches, progress, retry counts, quality gates, blocked tasks, degraded phases, resume point
 - Reference: `.claude/skills/state-manager.md`
 
 ### Resume Mode
 If `--resume` is passed or state file exists with `status: "running"`:
 1. Load existing state from `.claude/rw-kit.state.json`
-2. Find resume point (last incomplete batch/task)
-3. Skip completed tasks
+2. Find resume point (last incomplete batch/task/phase)
+3. Skip completed tasks and phases
 4. Continue from where it stopped
 
 ### Auto-Answer
@@ -116,9 +117,9 @@ Hooks in `.claude/hooks/` will automatically:
 - Answer confirmations with "yes"
 - Select "(Recommended)" options
 - Track progress in state file
+- Reference: `.claude/kbs/auto-answer-guide.md`
 
 ---
-name: execute
 
 ## Context Management (CRITICAL)
 
@@ -140,7 +141,6 @@ name: execute
 
 ```
 ---
-name: execute
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -152,7 +152,6 @@ Do NOT include:
 - Detailed explanations
 - Logs or debug output
 ---
-name: execute
 ```
 
 **Why?** Without this, a single agent can return 500+ lines of output, filling main context quickly.
@@ -188,9 +187,8 @@ Before implementing ANY task:
 3. **Follow patterns**: Maintain consistency with existing code
 
 ---
-name: execute
 
-## 3-Layer Task Completion Detection (NEW in v2.0)
+## 3-Layer Task Completion Detection
 
 > **PROBLEM**: Agent says "DONE" but files may not exist or be incomplete.
 > **SOLUTION**: 3-layer verification ensures task is truly complete.
@@ -219,9 +217,9 @@ name: execute
     "T001": {
       "status": "completed",
       "verification": {
-        "agent_done": true,      // Layer 1
-        "files_exist": true,     // Layer 2
-        "state_synced": true     // Layer 3
+        "agent_done": true,
+        "files_exist": true,
+        "state_synced": true
       }
     }
   }
@@ -232,22 +230,22 @@ name: execute
 
 ```
 Agent returns "DONE: Created auth service"
-    │
-    ▼ Layer 1 (Hook)
+    |
+    v Layer 1 (Hook)
 progress-tracker.json detects pattern
-    → Sets verification.agent_done = true
-    │
-    ▼ Layer 2 (Hook)
+    -> Sets verification.agent_done = true
+    |
+    v Layer 2 (Hook)
 file-verification.json runs on next Glob
-    → Checks expected files exist
-    → Sets verification.files_exist = true
-    │
-    ▼ Layer 3 (Orchestrator)
+    -> Checks expected files exist
+    -> Sets verification.files_exist = true
+    |
+    v Layer 3 (Orchestrator)
 execute.md verifies state consistency
-    → Updates todolist checkbox
-    → Sets verification.state_synced = true
-    │
-    ▼
+    -> Updates todolist checkbox
+    -> Sets verification.state_synced = true
+    |
+    v
 Task TRULY complete (all 3 layers passed)
 ```
 
@@ -264,9 +262,8 @@ If Layer 3 fails (state mismatch):
 3. Update both if discrepancy found
 
 ---
-name: execute
 
-## Execution Process (5 Phases)
+## Execution Process (10 Phases)
 
 ### Phase 0: State Initialization
 
@@ -276,14 +273,15 @@ name: execute
 if [ "$RESUME" = "true" ] && [ -f ".claude/rw-kit.state.json" ]; then
   status=$(jq -r '.status' .claude/rw-kit.state.json)
   if [ "$status" = "running" ] || [ "$status" = "paused" ]; then
-    echo "📂 Resuming from existing state..."
+    echo "Resuming from existing state..."
     # Load resume point
     resume_batch=$(jq -r '.resume_point.batch_id // empty' .claude/rw-kit.state.json)
     resume_task=$(jq -r '.resume_point.task_id // empty' .claude/rw-kit.state.json)
-    echo "Resume from: Batch $resume_batch, Task $resume_task"
+    resume_phase=$(jq -r '.resume_point.phase // empty' .claude/rw-kit.state.json)
+    echo "Resume from: Phase $resume_phase, Batch $resume_batch, Task $resume_task"
   fi
 else
-  echo "🆕 Starting fresh execution..."
+  echo "Starting fresh execution..."
 fi
 ```
 
@@ -303,11 +301,62 @@ jq --arg sid "$session_id" --arg ts "$ts" --arg todolist "$todolist_path" --arg 
   .config.project_path = $path
 ' .claude/templates/state-template.json > .claude/rw-kit.state.json
 
-echo "📊 State file created: .claude/rw-kit.state.json"
+echo "State file created: .claude/rw-kit.state.json"
 ```
 
 ---
-name: execute
+
+### Phase 0.5: Pre-flight Environment Check (NEW)
+
+> **Purpose**: Verify the environment is ready before starting implementation.
+> Catches missing dependencies, broken toolchains, and missing config early.
+
+#### Step 0.5.1: Verify Core Toolchain
+
+```bash
+# Check Node.js exists
+node --version || { echo "CRITICAL: Node.js not found - STOP"; exit 1; }
+
+# Ensure packages installed
+npm install 2>/dev/null
+
+# Ensure Prisma client up-to-date (if prisma exists in project)
+test -f "prisma/schema.prisma" && npx prisma generate 2>/dev/null
+```
+
+**If critical failure** (no Node, no npm): **STOP with clear error message**.
+**If non-critical** (no prisma): **WARN and continue**.
+
+#### Step 0.5.2: Check Database Connectivity
+
+```bash
+# Only if project uses Prisma
+if [ -f "prisma/schema.prisma" ]; then
+  npx prisma db push --accept-data-loss 2>/dev/null || echo "WARNING: Database not ready (may not be needed in early phases)"
+fi
+```
+
+If `DB_NOT_READY`: warn but continue (may not need DB until testing phases).
+
+#### Step 0.5.3: Check Environment Files
+
+```bash
+test -f .env || echo "WARNING: Missing .env file"
+test -f .env.test || echo "WARNING: Missing .env.test file (needed for integration tests)"
+```
+
+#### Step 0.5.4: Update State
+
+```bash
+jq --arg ts "$(date -Iseconds)" '
+  .resume_point.phase = "preflight" |
+  .updated_at = $ts |
+  .logs += [{"timestamp": $ts, "level": "info", "message": "Pre-flight checks completed"}]
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+```
+
+---
 
 ### Phase 1: Parse & Plan
 
@@ -318,9 +367,9 @@ Read("$ARGUMENTS")
 
 #### Step 1.2: Parse Tasks and Check Status
 For each task in the todolist:
-1. Check if task is already marked as `[x]` or `✅` → **SKIP**
-2. Check if task is marked as `[ ]` or `⬜` → **PENDING** (will execute)
-3. Check if task is marked as `🔄` → **IN PROGRESS** (resume)
+1. Check if task is already marked as `[x]` or completed → **SKIP**
+2. Check if task is marked as `[ ]` or pending → **PENDING** (will execute)
+3. Check if task is in `blocked_tasks[]` in state → **SKIP** (already blocked)
 
 #### Step 1.3: Verify Implementation (Batch - Max 3 agents)
 Before executing pending tasks, verify if code already exists:
@@ -339,7 +388,7 @@ Group **only pending tasks** by dependency level:
 
 #### Step 1.5: Compact After Planning
 ```
-📋 Planning Summary:
+Planning Summary:
 - Total tasks: X
 - Already completed: Y (skipped)
 - Pending tasks: Z
@@ -349,6 +398,8 @@ Group **only pending tasks** by dependency level:
 ```
 
 ### Phase 2: Batch Implementation
+
+> **Reference**: See `.claude/kbs/scheduling-pattern.md` for retry policy details.
 
 For EACH batch:
 
@@ -373,22 +424,56 @@ Task(subagent_type: "backend-development:backend-architect", prompt: `
 `, run_in_background: true)
 ```
 
-#### Step 2.2: Poll Until Batch Complete
+#### Step 2.2: Poll Until Batch Complete (with Retry Limits)
 ```javascript
 while (batchTasksRunning) {
   for (agent of batchAgents) {
     result = TaskOutput(agent.id, block: false)
     if (result.completed) {
-      // Record: ✅ Task X completed
+      // Record: Task X completed
       // DON'T parse full output - verify via files instead:
       Glob({ pattern: "apps/api/src/auth/*.ts" })
     }
     if (result.failed) {
-      // Launch fix agent with MINIMAL OUTPUT template
-      Task(subagent_type: "unit-testing:debugger", prompt: "Fix: [error details]...", run_in_background: true)
+      retryCount = state.retry_counts[task.id] || 0
+      retryCount++
+
+      if (retryCount === 1) {
+        // Attempt 1: Launch debugger agent
+        Task(subagent_type: "unit-testing:debugger",
+          prompt: "Fix: [error details]...",
+          run_in_background: true)
+      } else if (retryCount === 2) {
+        // Attempt 2: Launch different specialist agent
+        Task(subagent_type: getSpecialistAgent(task),
+          prompt: "Fix: [error details with more context]...",
+          run_in_background: true)
+      } else if (retryCount === 3) {
+        // Attempt 3: Launch with broader context
+        Task(subagent_type: getSpecialistAgent(task),
+          prompt: "Fix with full context: [error + surrounding code + dependencies]...",
+          run_in_background: true)
+      } else {
+        // BLOCKED: Skip task and all dependents
+        state.blocked_tasks.push(task.id)
+        state.progress.blocked++
+        skipDependentTasks(task.id)
+        log(`BLOCKED: Task ${task.id} failed after 3 retries`)
+      }
+
+      state.retry_counts[task.id] = retryCount
     }
   }
 }
+```
+
+#### Step 2.2.1: Post-Batch Auto-Install (NEW)
+```bash
+# Auto-install if new packages were added
+npm install 2>/dev/null
+
+# Auto-generate Prisma client if schema changed
+git diff --name-only | grep -q "schema.prisma" && npx prisma generate 2>/dev/null
 ```
 
 #### Step 2.3: Update TodoList File (CRITICAL)
@@ -397,7 +482,7 @@ After each task completes, **immediately update the todolist file**:
 Edit({
   file_path: "$ARGUMENTS",
   old_string: "- [ ] Task X description",
-  new_string: "- [x] Task X description ✅"
+  new_string: "- [x] Task X description"
 })
 ```
 
@@ -424,11 +509,12 @@ jq --argjson next_bid $((BATCH_ID + 1)) --arg ts "$(date -Iseconds)" '
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 ```
 
-**Display summary and compact:**
+**Report blocked tasks if any:**
 ```
-📊 Batch N Summary:
-- ✅ Task 1: Completed (created 3 files)
-- ✅ Task 2: Completed (updated API)
+Batch N Summary:
+- Completed: X tasks
+- Blocked: Y tasks (exhausted 3 retries)
+- Blocked tasks: [T003, T007]
 
 State Updated: .claude/rw-kit.state.json
 TodoList Updated: $ARGUMENTS
@@ -437,9 +523,8 @@ Use /compact to compress context before next batch
 ```
 
 ---
-name: execute
 
-### Phase 2.5: Seed Data Setup (NEW)
+### Phase 2.5: Seed Data Setup
 
 > **CRITICAL**: Seed data must be ready before running integration or E2E tests.
 
@@ -460,7 +545,7 @@ Task({
   - Export TEST_USERS constant with standard, admin, and empty users
   - Export seedTestDatabase(prisma) function using upsert for idempotency
   - Export cleanupTestDatabase(prisma) function
-  - Follow patterns in .claude/kbs/test-writing-guide.md → Seed Data Guide
+  - Follow patterns in .claude/kbs/test-writing-guide.md -> Seed Data Guide
 
   ---
   RESPONSE FORMAT (CRITICAL):
@@ -481,7 +566,7 @@ npx prisma migrate reset --force --skip-seed
 # Seed with known test data
 npm run db:seed:test
 
-echo "✅ Test database seeded with known data"
+echo "Test database seeded with known data"
 ```
 
 #### Step 2.5.3: Verify Seed Data
@@ -492,9 +577,10 @@ echo "Seed data ready for integration and E2E tests"
 ```
 
 ---
-name: execute
 
-### Phase 3: Unit & Integration Testing
+### Phase 3: Unit & Integration Testing (with Enforcing Gate)
+
+> **Reference**: See `.claude/kbs/scheduling-pattern.md` -> Retry Policy for fix attempt limits.
 
 After ALL implementation batches complete:
 
@@ -503,10 +589,50 @@ After ALL implementation batches complete:
 npm test -- --coverage --passWithNoTests
 ```
 
-- If **ALL PASS**: Continue to integration tests
-- If **FAILURES**: Launch fix agents, re-run tests
+- If **ALL PASS**: Update quality gate and continue to integration tests
+- If **FAILURES**: Enter fix loop (max 3 attempts)
 
-#### Step 3.2: Run Integration Tests (NEW)
+#### Step 3.2: Unit Test Fix Loop (Enforcing Gate)
+
+```javascript
+fixAttempts = 0
+maxFixAttempts = 3
+
+while (unitTestsFailing && fixAttempts < maxFixAttempts) {
+  fixAttempts++
+
+  if (fixAttempts === 1) {
+    // Attempt 1: Debugger agent
+    Task(subagent_type: "unit-testing:debugger",
+      prompt: "Fix failing unit tests: [failure details]...",
+      run_in_background: true)
+  } else if (fixAttempts === 2) {
+    // Attempt 2: Specialist agent
+    Task(subagent_type: "backend-development:backend-architect",
+      prompt: "Fix failing unit tests with broader context: [failure details + test files + source files]...",
+      run_in_background: true)
+  } else {
+    // Attempt 3: Agent with full context
+    Task(subagent_type: "javascript-typescript:typescript-pro",
+      prompt: "Fix failing unit tests - full analysis needed: [all failure details + related code]...",
+      run_in_background: true)
+  }
+
+  // Re-run tests
+  // npm test -- --coverage --passWithNoTests
+}
+
+if (unitTestsFailing) {
+  // Mark phase as DEGRADED - continue pipeline
+  state.degraded_phases.push("unit_tests")
+  state.quality_gates.unit_tests = "degraded"
+  log("DEGRADED: Unit tests still failing after 3 fix attempts - continuing pipeline")
+} else {
+  state.quality_gates.unit_tests = "passed"
+}
+```
+
+#### Step 3.3: Run Integration Tests
 
 ```bash
 npm run db:seed:test && npm test -- --testPathPattern="integration.spec" --passWithNoTests
@@ -522,7 +648,7 @@ Task({
   - Use real database (not mocked PrismaService)
   - Import seed data from prisma/seed-test.ts (TEST_USERS, etc.)
   - File naming: *.integration.spec.ts (co-located with source)
-  - Follow patterns in .claude/kbs/test-writing-guide.md → Integration Testing
+  - Follow patterns in .claude/kbs/test-writing-guide.md -> Integration Testing
 
   ---
   RESPONSE FORMAT (CRITICAL):
@@ -534,13 +660,12 @@ Task({
 })
 ```
 
-- If **ALL PASS**: Proceed to E2E testing
-- If **FAILURES**: Launch fix agents, re-run tests
+- If **FAILURES**: Apply same fix loop as unit tests (max 3 attempts)
+- Update quality gate: `state.quality_gates.integration_tests = "passed" | "degraded"`
 
 ---
-name: execute
 
-### Phase 4: E2E Testing with Seed Data
+### Phase 4: E2E Testing with Seed Data (with Enforcing Gate)
 
 > **IMPORTANT**: E2E tests must use seed data and trace to user stories.
 
@@ -574,7 +699,7 @@ Task({
   - Import TEST_USERS from prisma/seed-test.ts
   - Use Page Object Model pattern
   - NEVER hardcode credentials
-  - Follow patterns in .claude/kbs/test-writing-guide.md → User Story → E2E Mapping
+  - Follow patterns in .claude/kbs/test-writing-guide.md -> User Story to E2E Mapping
 
   ---
   RESPONSE FORMAT (CRITICAL):
@@ -586,108 +711,488 @@ Task({
 })
 ```
 
-- If **ALL PASS**: Proceed to final checks
-- If **FAILURES**: Launch fix agents, re-run tests
+#### Step 4.4: E2E Fix Loop (Enforcing Gate)
+
+Same pattern as Phase 3: max 3 fix attempts, then DEGRADED.
+
+- Update quality gate: `state.quality_gates.e2e_tests = "passed" | "degraded"`
 
 ---
-name: execute
 
-### Phase 5: Final Quality Check
+### Phase 5: Quality Check (with Auto-Fix Protocols)
 
 #### Step 5.1: Smoke Test (MANDATORY)
 
-> **CRITICAL**: Build passing ≠ Application working! Must verify runtime startup.
+> **CRITICAL**: Build passing does not mean application works! Must verify runtime startup.
 
 ```bash
 npm run dev &
 sleep 15
 
 # Verify API starts without DI errors
-curl -f http://localhost:{API_PORT}/api/health || echo "❌ API FAILED"
+curl -f http://localhost:{API_PORT}/api/health || echo "API FAILED"
 
 # Verify Frontend responds
-curl -f -o /dev/null http://localhost:{WEB_PORT} || echo "❌ FRONTEND FAILED"
+curl -f -o /dev/null http://localhost:{WEB_PORT} || echo "FRONTEND FAILED"
 
-echo "✅ Smoke test passed!"
+echo "Smoke test passed!"
 ```
 
-#### Step 5.2: Run All Static Checks
+#### Step 5.2: Auto-Fix Protocols (NEW)
+
+When smoke test fails, check error type and auto-fix:
+
+| Error Pattern | Auto-Fix Action |
+|---------------|----------------|
+| `Nest can't resolve dependencies` | Launch `backend-development:backend-architect`: "Fix DI error: add missing module import" |
+| `Cannot find module` | Run `npm install` |
+| `ECONNREFUSED :5432` | **STOP**: "Database not running - cannot auto-fix" |
+| `Module not found` | Launch `backend-development:backend-architect`: "Fix import path" |
+| Build type errors | Launch `javascript-typescript:typescript-pro`: "Fix TypeScript errors" |
+| Lint errors | Run `npx eslint --fix src/` |
+
+```javascript
+smokeRetries = 0
+maxSmokeRetries = 2
+
+while (smokeTestFailing && smokeRetries < maxSmokeRetries) {
+  smokeRetries++
+  // Match error pattern and apply auto-fix
+  applyAutoFix(errorPattern)
+  // Re-run smoke test
+}
+
+if (smokeTestFailing) {
+  state.degraded_phases.push("smoke_test")
+  state.quality_gates.smoke_test = "degraded"
+  log("DEGRADED: Smoke test failing after auto-fix attempts")
+} else {
+  state.quality_gates.smoke_test = "passed"
+}
+```
+
+#### Step 5.3: Run All Static Checks
 ```bash
 npm run build        # Build check
-npm run typecheck    # TypeScript check
+npm run typecheck    # TypeScript check (if available)
 npm run lint         # ESLint check
 ```
 
-#### Step 5.3: Commit Changes
-```bash
-git add .
-git commit -m "feat(module): implement [module-name] with tests"
+#### Step 5.4: Compact Before UAT
+```
+Quality Check Summary:
+- Smoke test: PASSED / DEGRADED
+- Build: PASSED
+- TypeScript: PASSED
+- Lint: PASSED
+
+/compact
 ```
 
-#### Step 5.4: Mark Execution Complete
+---
+
+### Phase 6: UAT Testing (NEW)
+
+> **Purpose**: Automated User Acceptance Testing validates that implemented features meet user stories and requirements.
+
+#### Step 6.1: Run Full Automated Test Suite as UAT
+
+```bash
+# Unit tests with coverage
+npm test -- --coverage --passWithNoTests
+
+# Integration tests with seed data
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec" --passWithNoTests
+
+# E2E tests with seed data
+npm run db:seed:test && npx playwright test --project=chromium
+```
+
+#### Step 6.2: User Story to E2E Traceability Check
+
+```javascript
+// Extract user stories from requirement/plan files
+Glob({ pattern: "requirements/*.md" })
+Glob({ pattern: "plans/*-plan.md" })
+
+// List E2E test files
+Glob({ pattern: "e2e/**/*.spec.ts" })
+
+// Create traceability report:
+// | User Story | E2E Test File | Status |
+// |------------|---------------|--------|
+// | US-001: User can register | e2e/auth/register.spec.ts | COVERED |
+// | US-002: User can login | e2e/auth/login.spec.ts | COVERED |
+// | US-003: User can reset password | - | MISSING |
+
+// If gaps found: Launch test-automator to create missing tests (max 1 attempt)
+if (missingCoverage) {
+  Task({
+    subagent_type: "full-stack-orchestration:test-automator",
+    prompt: `Create E2E tests for uncovered user stories: [list missing stories]
+
+    ---
+    RESPONSE FORMAT (CRITICAL):
+    When complete, respond with ONLY:
+    DONE: [1-2 sentence summary]
+    Files: [comma-separated list]
+    ---`,
+    run_in_background: true
+  })
+}
+```
+
+#### Step 6.3: Anti-Mock Check
+
+```javascript
+// Grep for suspicious patterns (mocking the module under test)
+Grep({ pattern: "jest.mock.*module-under-test", glob: "**/*.spec.ts" })
+Grep({ pattern: "jest.mock\\(.*\\).*// mocking itself", glob: "**/*.spec.ts" })
+
+// If found: Launch agent to create proper integration tests
+if (suspiciousMocks) {
+  Task({
+    subagent_type: "full-stack-orchestration:test-automator",
+    prompt: `Replace suspicious test mocks with proper integration tests.
+    Found mocking patterns that mock the module under test instead of external deps.
+
+    ---
+    RESPONSE FORMAT (CRITICAL):
+    When complete, respond with ONLY:
+    DONE: [1-2 sentence summary]
+    Files: [comma-separated list]
+    ---`,
+    run_in_background: true
+  })
+}
+```
+
+#### Step 6.4: Create UAT Report
+
+```javascript
+Write({
+  file_path: "docs/reports/{yyyyMMddHHmm}-{module}-uat-report.md",
+  content: `# UAT Report: {Module Name}
+
+## Test Results Summary
+| Test Level | Total | Passed | Failed | Coverage |
+|-----------|-------|--------|--------|----------|
+| Unit Tests | X | X | 0 | 85% |
+| Integration Tests | X | X | 0 | Key services |
+| E2E Tests | X | X | 0 | 100% stories |
+
+## User Story Traceability
+| User Story | E2E Test | Status |
+|------------|----------|--------|
+{traceability matrix}
+
+## Anti-Mock Check
+- Suspicious mocks found: {count}
+- Fixed: {yes/no}
+
+## UAT Decision
+- [ ] PASSED - All criteria met
+- [ ] NEEDS ATTENTION - See degraded items
+`
+})
+```
+
+#### Step 6.5: Update State & Compact
+
+```bash
+jq --arg ts "$(date -Iseconds)" '
+  .quality_gates.uat = "passed" |
+  .resume_point.phase = "uat" |
+  .updated_at = $ts
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+```
+
+```
+/compact
+```
+
+---
+
+### Phase 7: QA Review & Approval (NEW)
+
+> **Purpose**: Automated code quality and security review with fix cycles.
+
+#### Step 7.1: Code Quality Review (Batch - max 3 agents, background)
+
+```javascript
+Task({
+  subagent_type: "backend-development:backend-architect",
+  prompt: `Review backend code quality for {module}:
+  - Error handling patterns
+  - API design consistency
+  - Database query efficiency
+  - Input validation
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  FINDINGS: [categorized list: CRITICAL/MAJOR/MINOR]
+  Files: [files with issues]
+  ---`,
+  run_in_background: true
+})
+
+Task({
+  subagent_type: "multi-platform-apps:frontend-developer",
+  prompt: `Review frontend code quality for {module}:
+  - Component patterns
+  - Accessibility (a11y)
+  - State management
+  - Performance patterns
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  FINDINGS: [categorized list: CRITICAL/MAJOR/MINOR]
+  Files: [files with issues]
+  ---`,
+  run_in_background: true
+})
+
+Task({
+  subagent_type: "javascript-typescript:typescript-pro",
+  prompt: `Review TypeScript usage for {module}:
+  - Type safety
+  - Proper use of generics
+  - No 'any' types without justification
+  - Interface/type consistency
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  FINDINGS: [categorized list: CRITICAL/MAJOR/MINOR]
+  Files: [files with issues]
+  ---`,
+  run_in_background: true
+})
+```
+
+Compact after batch completes.
+
+#### Step 7.2: Security Review (Batch - max 2 agents, background)
+
+```javascript
+Task({
+  subagent_type: "full-stack-orchestration:security-auditor",
+  prompt: `Review authentication and authorization for {module}:
+  - Auth flow correctness
+  - Token handling
+  - Permission checks
+  - Session management
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  FINDINGS: [categorized list: CRITICAL/MAJOR/MINOR]
+  Files: [files with issues]
+  ---`,
+  run_in_background: true
+})
+
+Task({
+  subagent_type: "full-stack-orchestration:security-auditor",
+  prompt: `OWASP Top 10 review for {module}:
+  - SQL Injection
+  - XSS
+  - CSRF
+  - Insecure Direct Object References
+  - Security Misconfiguration
+
+  ---
+  RESPONSE FORMAT (CRITICAL):
+  When complete, respond with ONLY:
+  FINDINGS: [categorized list: CRITICAL/MAJOR/MINOR]
+  Files: [files with issues]
+  ---`,
+  run_in_background: true
+})
+```
+
+Compact after batch completes.
+
+#### Step 7.3: Compile Findings
+
+Categorize all findings from review agents:
+- **CRITICAL**: Must fix before approval (security vulnerabilities, data loss risks)
+- **MAJOR**: Should fix (poor patterns, missing validation, accessibility issues)
+- **MINOR**: Nice to fix (code style, minor improvements)
+
+#### Step 7.4: Decision Gate
+
+```javascript
+if (noCriticalOrMajorIssues) {
+  // APPROVED
+  state.quality_gates.qa_review = "approved"
+} else {
+  // NEEDS FIXES - enter QA fix cycle
+  qaCycle = 0
+  maxQACycles = 2
+
+  while (hasCriticalOrMajorIssues && qaCycle < maxQACycles) {
+    qaCycle++
+    state.qa_cycles = qaCycle
+
+    // Launch fix agents for each critical/major issue (background)
+    for (issue of criticalAndMajorIssues) {
+      Task({
+        subagent_type: getFixAgent(issue),
+        prompt: `Fix QA issue: ${issue.description}
+
+        ---
+        RESPONSE FORMAT (CRITICAL):
+        When complete, respond with ONLY:
+        DONE: [1-2 sentence summary]
+        Files: [comma-separated list]
+        ---`,
+        run_in_background: true
+      })
+    }
+
+    // Re-run affected tests
+    // npm test -- --coverage --passWithNoTests
+
+    // Re-evaluate
+    // Re-launch review agents for the specific areas that had issues
+  }
+
+  if (stillHasCriticalOrMajorIssues) {
+    state.quality_gates.qa_review = "degraded"
+    state.degraded_phases.push("qa_review")
+    log("DEGRADED: QA review still has issues after 2 cycles")
+  } else {
+    state.quality_gates.qa_review = "approved"
+  }
+}
+```
+
+#### Step 7.5: Create QA Report
+
+```javascript
+Write({
+  file_path: "docs/reports/{yyyyMMddHHmm}-{module}-qa-report.md",
+  content: `# QA Report: {Module Name}
+
+## Decision: APPROVED / DEGRADED
+
+## Code Quality Findings
+| Severity | Count | Fixed |
+|----------|-------|-------|
+| CRITICAL | X | X |
+| MAJOR | X | X |
+| MINOR | X | - |
+
+## Security Review
+| Check | Status |
+|-------|--------|
+| Auth/AuthZ | PASS/FAIL |
+| OWASP Top 10 | PASS/FAIL |
+
+## Quality Gates Summary
+| Gate | Status |
+|------|--------|
+| Unit Tests | ${state.quality_gates.unit_tests} |
+| Integration Tests | ${state.quality_gates.integration_tests} |
+| E2E Tests | ${state.quality_gates.e2e_tests} |
+| Smoke Test | ${state.quality_gates.smoke_test} |
+| UAT | ${state.quality_gates.uat} |
+| QA Review | ${state.quality_gates.qa_review} |
+
+## Blocked Tasks
+${state.blocked_tasks.length > 0 ? state.blocked_tasks.join(', ') : 'None'}
+
+## Degraded Phases
+${state.degraded_phases.length > 0 ? state.degraded_phases.join(', ') : 'None'}
+
+## QA Cycles: ${state.qa_cycles}
+`
+})
+```
+
+#### Step 7.6: Final Commit
+
+```bash
+git add .
+git commit -m "feat({module}): implement with UAT+QA approval"
+```
+
+#### Step 7.7: Mark Execution Complete
+
 ```bash
 # Update state to completed
 jq --arg ts "$(date -Iseconds)" '
   .status = "completed" |
   .updated_at = $ts |
-  .resume_point = { "batch_id": null, "task_id": null, "phase": null }
+  .resume_point = { "batch_id": null, "task_id": null, "phase": null } |
+  .logs += [{"timestamp": $ts, "level": "info", "message": "Full pipeline completed (dev + UAT + QA)"}]
 ' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 
-# Add completion log
-jq --arg ts "$(date -Iseconds)" '
-  .logs += [{"timestamp": $ts, "level": "info", "message": "Execution completed successfully"}]
-' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
-mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
-
-echo "✅ Execution state marked as completed"
+echo "Execution complete - full pipeline finished"
 ```
 
-#### Step 5.5: Create Completion Report
-Create summary in `docs/reports/` with format `yyyyMMddHHmm-{module}-execution-summary.md`
-
 ---
-name: execute
 
 ## Quick Reference: Context Management
 
 ```
-📋 Phase 1: Parse → Check Status → Verify → Group → /compact
-📦 Batch 0 (5-7 agents + MINIMAL OUTPUT) → Poll → Update TodoList → /compact
-📦 Batch 1 (5-7 agents + MINIMAL OUTPUT) → Poll → Update TodoList → /compact
-📦 Batch N (5-7 agents + MINIMAL OUTPUT) → Poll → Update TodoList → /compact
-🌱 Phase 2.5: Seed Data Setup → db:seed:test
-🧪 Phase 3: Unit Tests → Integration Tests → Fix → Rerun → /compact
-🎭 Phase 4: E2E Tests (seed data + user story coverage) → Fix → Rerun → /compact
-🚀 Phase 5: Smoke Test (MANDATORY) → npm run dev → Health checks
-✅ Final Static Checks → Commit → Report
+Phase 0:   State Init
+Phase 0.5: Pre-flight (node, npm, prisma, env) → /compact
+Phase 1:   Parse -> Check Status -> Verify -> Group -> /compact
+Phase 2:   Batch 0 (5-7 agents + MINIMAL OUTPUT + retry limits) -> Poll -> Update -> /compact
+           Batch N (5-7 agents + MINIMAL OUTPUT + retry limits) -> Poll -> Update -> /compact
+Phase 2.5: Seed Data Setup -> db:seed:test
+Phase 3:   Unit Tests -> Integration Tests -> Fix Loop (max 3) -> /compact
+Phase 4:   E2E Tests (seed data + user story coverage) -> Fix Loop (max 3) -> /compact
+Phase 5:   Smoke Test -> Auto-Fix Protocols (max 2) -> Static Checks -> /compact
+Phase 6:   UAT (full test suite + traceability + anti-mock) -> Report -> /compact
+Phase 7:   QA Review (code quality + security) -> Fix Cycles (max 2) -> Report -> Commit
 ```
 
-### Common Runtime Errors (Smoke Test Failures)
+### Retry Limits Summary
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Nest can't resolve dependencies` | Missing module import | Add module to `imports: []` |
-| `Cannot find module` | Missing package | Run `npm install` |
-| `ECONNREFUSED :5432` | Database not running | Start PostgreSQL |
-| `Module not found` | Wrong import path | Fix import statement |
+| Scope | Max Retries | Escalation |
+|-------|-------------|------------|
+| Task implementation | 3 per task | debugger -> specialist -> broad context -> BLOCKED |
+| Test phase fix loop | 3 per phase | debugger -> specialist -> full analysis -> DEGRADED |
+| Smoke test auto-fix | 2 | pattern-match fix -> DEGRADED |
+| QA review cycles | 2 | fix + re-test -> DEGRADED |
+
+### Common Runtime Errors (Smoke Test Auto-Fix)
+
+| Error | Auto-Fix |
+|-------|----------|
+| `Nest can't resolve dependencies` | backend-architect: fix DI imports |
+| `Cannot find module` | `npm install` |
+| `ECONNREFUSED :5432` | **STOP** - DB not running |
+| `Module not found` | backend-architect: fix import path |
+| Build type errors | typescript-pro: fix TS errors |
+| Lint errors | `npx eslint --fix src/` |
 
 > **Reference**: See `.claude/kbs/qa-checklist.md` for comprehensive checklist
+> **Reference**: See `.claude/kbs/auto-answer-guide.md` for auto-answer behavior
 
 ---
-name: execute
 
 ## After Completion
 
-1. ✅ All implementation tasks completed
-2. ✅ TodoList file updated (all tasks marked as `[x]`)
-3. ✅ Seed data created and verified (`prisma/seed-test.ts`)
-4. ✅ Unit tests passing (>80% coverage)
-5. ✅ Integration tests passing (real DB + seed data)
-6. ✅ E2E tests passing (user story-driven + seed data)
-7. ✅ All user stories have corresponding E2E tests
-8. ✅ **Smoke test passed** - `npm run dev` starts without errors
-9. ✅ Build and lint passing
-10. ✅ Changes committed
-11. ✅ Completion report created
-12. 📋 Ready for `/project:uat-test`
+1. Pre-flight environment verified
+2. All implementation tasks completed (blocked tasks reported)
+3. TodoList file updated (all tasks marked)
+4. Seed data created and verified (`prisma/seed-test.ts`)
+5. Unit tests passing (>80% coverage)
+6. Integration tests passing (real DB + seed data)
+7. E2E tests passing (user story-driven + seed data)
+8. All user stories have corresponding E2E tests
+9. Smoke test passed (with auto-fix if needed)
+10. Build and lint passing
+11. UAT testing complete with traceability report
+12. QA review complete (code quality + security)
+13. QA report: APPROVED / DEGRADED
+14. All changes committed
+15. Production-grade pipeline complete
