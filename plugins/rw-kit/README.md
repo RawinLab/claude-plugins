@@ -2,13 +2,26 @@
 
 **Multi-Agent Orchestration Framework for Claude Code**
 
-Version: 2.2.0
+Version: 3.0.0
 
 ## Overview
 
-RW-Kit is a comprehensive multi-agent orchestration framework that enables autonomous AI collaboration from requirements analysis to production-ready code.
+RW-Kit is a comprehensive multi-agent orchestration framework that enables fully autonomous AI collaboration from requirements analysis through UAT testing and QA review to production-grade code.
 
 ## Features
+
+### v3.0 Highlights - Fully Agentic Pipeline
+
+- **End-to-End Autonomous Pipeline** - Execute drives dev → UAT → QA → production-grade in one command
+- **Pre-flight Environment Checks** - Validates node, npm, prisma, env files before starting
+- **Retry Limits & Escalation** - 3 retries per task (debugger → specialist → broad context → BLOCKED)
+- **Enforcing Quality Gates** - Max 3 fix attempts per test phase, then DEGRADED (no infinite loops)
+- **Auto-Fix Protocols** - Pattern-matched fixes for common smoke test errors (DI, imports, types)
+- **Inline UAT Testing** - Full test suite + user story traceability + anti-mock checks
+- **Inline QA Review** - Code quality (3 agents) + security review (2 agents) + fix cycles
+- **BLOCKED/DEGRADED States** - Clear escalation: blocked tasks skipped, degraded phases reported
+- **Auto-Answer Guide** - Documented strategy for fully autonomous execution
+- **State v3.0** - Tracks retry counts, quality gates, blocked tasks, degraded phases, QA cycles
 
 ### v2.2 Highlights
 
@@ -42,8 +55,8 @@ RW-Kit is a comprehensive multi-agent orchestration framework that enables auton
 | `/rw-kit:analyze` | Cross-artifact validation |
 | `/rw-kit:plan-module` | Create development plan with E2E spec mapping |
 | `/rw-kit:plan-to-todolist` | Convert plan to todolist |
-| `/rw-kit:execute` | Execute with batch scheduling + seed data + integration tests |
-| `/rw-kit:implement` | Full workflow automation with seed data pipeline |
+| `/rw-kit:execute` | Execute with full agentic pipeline (dev → UAT → QA) |
+| `/rw-kit:implement` | Full workflow automation (requirements → production-grade) |
 | `/rw-kit:create-tests` | Generate unit tests |
 | `/rw-kit:create-integration-tests` | Generate integration tests with real DB |
 | `/rw-kit:create-e2e` | Generate E2E tests with seed data + user story mapping |
@@ -51,37 +64,56 @@ RW-Kit is a comprehensive multi-agent orchestration framework that enables auton
 | `/rw-kit:uat-test` | User acceptance testing with traceability check |
 | `/rw-kit:qa-review` | Final quality review |
 
-## Workflow (6 Phases)
+## Workflow (10 Phases)
 
 ```
-1. CLARIFY  → Detect ambiguities (max 5 questions)
-2. PLAN     → Phase 0 Research + Exact Contracts + E2E Spec Mapping
-3. TODOLIST → Tasks by User Story + Dependencies
-4. ANALYZE  → Cross-artifact validation (READ-ONLY)
-5. EXECUTE  → Parallel batches + Seed data + 3-layer verification
-6. TEST/QA  → Unit + Integration + E2E (user story) + Smoke test
+1. CLARIFY    → Detect ambiguities (max 5 questions)
+2. PLAN       → Phase 0 Research + Exact Contracts + E2E Spec Mapping
+3. TODOLIST   → Tasks by User Story + Dependencies
+4. ANALYZE    → Cross-artifact validation (READ-ONLY)
+5. PRE-FLIGHT → Verify environment (node, npm, prisma, env)
+6. EXECUTE    → Parallel batches + retry limits + 3-layer verification
+7. TEST       → Unit + Integration + E2E (enforcing gates, max 3 fixes)
+8. QUALITY    → Smoke test + auto-fix protocols
+9. UAT        → Full test suite + traceability + anti-mock check
+10. QA REVIEW → Code quality + security review + fix cycles → APPROVED/DEGRADED
 ```
 
 ## Testing Pipeline
 
 ```
+Pre-flight Check (node, npm, prisma, env)
+    │
+    ▼
 Seed Data Setup (prisma/seed-test.ts)
     │
     ▼
-Unit Tests (Jest, 80%+ coverage)
+Unit Tests (Jest, 80%+ coverage) ─── Fix Loop (max 3) → DEGRADED
     │
     ▼
-Integration Tests (real DB + seed data, *.integration.spec.ts)
+Integration Tests (real DB + seed data) ─── Fix Loop (max 3) → DEGRADED
     │
     ▼
-E2E Tests (Playwright + seed data + user story mapping)
+E2E Tests (Playwright + user story mapping) ─── Fix Loop (max 3) → DEGRADED
     │
     ▼
-Smoke Test (npm run dev + health checks)
+Smoke Test + Auto-Fix Protocols (max 2 retries)
     │
     ▼
-Traceability Check (all user stories → E2E tests)
+UAT (traceability check + anti-mock check)
+    │
+    ▼
+QA Review (code quality + security) ─── Fix Cycles (max 2) → APPROVED/DEGRADED
 ```
+
+### Retry Limits
+
+| Scope | Max Retries | Escalation |
+|-------|-------------|------------|
+| Task implementation | 3 per task | debugger → specialist → broad context → BLOCKED |
+| Test phase fix loop | 3 per phase | debugger → specialist → full analysis → DEGRADED |
+| Smoke test auto-fix | 2 | pattern-match fix → DEGRADED |
+| QA review cycles | 2 | fix + re-test → DEGRADED |
 
 ### Seed Data
 
@@ -160,9 +192,20 @@ git clone https://github.com/rawinlab/claude-plugins
 
 ## Configuration
 
-### State File
+### State File (v3.0)
 - Location: `.claude/rw-kit.state.json`
-- Tracks: Tasks, batches, progress, resume point
+- Tracks: Tasks, batches, progress, retry counts, quality gates, blocked tasks, degraded phases, resume point
+
+### Quality Gates
+
+| Gate | Tracked In State |
+|------|-----------------|
+| Unit Tests | `quality_gates.unit_tests` |
+| Integration Tests | `quality_gates.integration_tests` |
+| E2E Tests | `quality_gates.e2e_tests` |
+| Smoke Test | `quality_gates.smoke_test` |
+| UAT | `quality_gates.uat` |
+| QA Review | `quality_gates.qa_review` |
 
 ### Resume Execution
 ```bash

@@ -27,7 +27,7 @@
 |--------|---------|-------------|
 | [rw-telegram](./plugins/rw-telegram) | v1.1 | Bidirectional Telegram with verbose/summary modes, questions, remote control |
 | [rw-speckit-orchestrator](./plugins/rw-speckit-orchestrator) | v3.1 | Task Tool based Spec-Kit orchestrator with full testing pipeline |
-| [rw-kit](./plugins/rw-kit) | v2.2 | Multi-agent orchestration framework with seed data, user story E2E, and integration testing |
+| [rw-kit](./plugins/rw-kit) | v3.0 | Fully agentic multi-agent orchestration: dev → UAT → QA pipeline with retry limits and quality gates |
 
 ---
 
@@ -87,25 +87,26 @@ Orchestrator → Task Tool → Worker Agent → Subagents
 
 ### rw-kit
 
-Multi-agent orchestration framework for complete software development lifecycle:
+Fully agentic multi-agent orchestration framework for complete software development lifecycle:
 
-- **6-Phase Workflow** - Clarify → Plan → TodoList → Analyze → Execute → Test/QA
+- **10-Phase Pipeline** - Clarify → Plan → TodoList → Analyze → Pre-flight → Execute → Test → Quality → UAT → QA Review
+- **Fully Autonomous** - Execute drives entire pipeline from dev through UAT and QA to production-grade
 - **5 Custom Agents** - SA-Analyst, Tech Lead, Team Lead, Lead Tester, QA Lead
 - **12 Commands** - Full development lifecycle coverage
-- **Seed Data Pipeline** - Automatic test database seeding with `TEST_USERS` constants
-- **User Story → E2E Mapping** - Every Playwright test traces to a requirement
-- **Integration Testing** - Real database tests (no mocking)
+- **Retry Limits & Escalation** - 3 retries per task, BLOCKED/DEGRADED states (no infinite loops)
+- **Enforcing Quality Gates** - Unit, Integration, E2E, Smoke, UAT, QA Review tracked in state
+- **Auto-Fix Protocols** - Pattern-matched fixes for common errors (DI, imports, types)
+- **Inline UAT + QA** - Traceability checks, anti-mock detection, code quality + security review
 - **3-Layer Verification** - Agent output + File existence + State sync
-- **Parallel Execution** - Batch-based with context management
 
-**Testing Pipeline:**
+**Pipeline:**
 ```
-Seed Data → Unit Tests → Integration Tests → E2E Tests → Smoke Test → Traceability Check
+Pre-flight → Execute → Tests (enforcing) → Smoke + Auto-Fix → UAT → QA Review → APPROVED
 ```
 
 **Quick Start:**
 ```bash
-# Full automated workflow (includes seed data + all test levels)
+# Full automated workflow (dev → UAT → QA → production-grade)
 /rw-kit:implement user-authentication feature
 
 # Or step-by-step
