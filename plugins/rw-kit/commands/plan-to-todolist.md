@@ -118,6 +118,25 @@ Write({
 
 ---
 
+## Test Data & Testing Tasks
+
+### Seed Data Setup
+- [ ] T0S1 P1 ALL Create/update seed-test.ts with TEST_USERS and test entities [agent: backend-architect] [deps: DB tasks] [files: prisma/seed-test.ts]
+- [ ] T0S2 P1 ALL Add db:seed:test script to package.json [agent: backend-architect] [deps: T0S1] [files: package.json]
+
+### Integration Tests (per service)
+- [ ] T0I1 P2 US-001 Create integration tests for {Service} [agent: test-automator] [deps: service tasks] [files: {service}.integration.spec.ts]
+
+### E2E Tests (per user story)
+| Task | User Story | E2E Test File | Seed Data | Deps |
+|------|------------|---------------|-----------|------|
+| T0E1 | US-001 | e2e/{feature}/{story}.spec.ts | TEST_USERS.standard | All US-001 tasks |
+| T0E2 | US-002 | e2e/{feature}/{story}.spec.ts | TEST_USERS.standard | All US-002 tasks |
+
+> **Rules**: E2E tests MUST use `TEST_USERS` from seed-test.ts (never hardcode credentials). Each user story MUST have a corresponding E2E test.
+
+---
+
 ## Execution Batches
 
 ### Batch 0 - No Dependencies
@@ -129,6 +148,20 @@ Write({
 | Task | Story | Agent | Deps | Files |
 |------|-------|-------|------|-------|
 | T002 | US-001 | frontend-developer | T001 | Component.tsx |
+
+### Batch N-1 - Seed Data & Integration Tests
+| Task | Story | Agent | Deps | Files |
+|------|-------|-------|------|-------|
+| T0S1 | ALL | backend-architect | DB tasks | prisma/seed-test.ts |
+| T0I1 | US-001 | test-automator | service tasks | *.integration.spec.ts |
+
+### Batch N - E2E Tests (Last Batch)
+| Task | Story | Agent | Deps | Files |
+|------|-------|-------|------|-------|
+| T0E1 | US-001 | test-automator | All US-001 tasks | e2e/{feature}/{story}.spec.ts |
+| T0E2 | US-002 | test-automator | All US-002 tasks | e2e/{feature}/{story}.spec.ts |
+
+> **Testing batch order**: Seed data → Integration tests → E2E tests (always last)
 
 ---
 
@@ -235,7 +268,9 @@ Where:
 |-----------|-------|
 | Database/API | `backend-development:backend-architect` |
 | UI/React | `multi-platform-apps:frontend-developer` |
-| Testing | `full-stack-orchestration:test-automator` |
+| Unit/Integration Tests | `full-stack-orchestration:test-automator` |
+| E2E Tests (Playwright) | `full-stack-orchestration:test-automator` |
+| Seed Data | `backend-development:backend-architect` |
 | Security | `full-stack-orchestration:security-auditor` |
 
 ---
@@ -244,4 +279,7 @@ Where:
 
 1. ✅ Individual todolist file created
 2. ✅ Master todolist updated
-3. 📋 Ready for `/rw-kit:execute`
+3. ✅ Seed data tasks included (prisma/seed-test.ts)
+4. ✅ Integration test tasks included (per key service)
+5. ✅ E2E test tasks mapped to user stories (per US-XXX)
+6. 📋 Ready for `/rw-kit:analyze` then `/rw-kit:execute`

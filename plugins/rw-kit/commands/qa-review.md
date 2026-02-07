@@ -156,13 +156,31 @@ name: qa-review
 
 ### Phase 3: Test Verification
 
+#### Step 3.0: Seed Data Setup (MANDATORY)
+
+> **CRITICAL**: Seed data must be verified before running integration or E2E tests.
+
+```bash
+# Verify seed data exists
+cat prisma/seed-test.ts | head -5
+
+# Reset and seed test database
+npx prisma migrate reset --force --skip-seed
+npm run db:seed:test
+```
+
+**If `seed-test.ts` missing**: ❌ REJECT - Seed data is required for testing.
+
 #### Step 3.1: Run All Tests
 ```bash
 # Unit tests with coverage
 npm test -- --coverage
 
-# E2E tests
-npx playwright test --project=chromium
+# Integration tests (real DB + seed data)
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec"
+
+# E2E tests (seed data + user story mapping)
+npm run db:seed:test && npx playwright test --project=chromium
 
 # Build verification
 npm run build
@@ -174,18 +192,46 @@ npm run typecheck
 npm run lint
 ```
 
-#### Step 3.2: Analyze Test Coverage (Batch - Max 2 agents)
+#### Step 3.2: User Story → E2E Traceability Check
+
+> **NEW in v2.2**: Verify every user story has a corresponding E2E test.
+
+```javascript
+// Extract user stories from requirement/plan
+Glob({ pattern: "requirements/*.md" })
+Glob({ pattern: "plans/*-plan.md" })
+
+// List all E2E test files
+Glob({ pattern: "e2e/**/*.spec.ts" })
+
+// Check coverage: each user story should have a test
+```
+
+**Traceability Report:**
+```markdown
+| User Story | E2E Test File | Status |
+|------------|---------------|--------|
+| US-001: ... | e2e/.../... | ✅ Covered |
+| US-002: ... | (none) | ❌ MISSING |
+```
+
+**If gaps found**: Report as Major issue - E2E tests must cover all user stories.
+
+#### Step 3.3: Analyze Test Coverage (Batch - Max 2 agents)
 ```javascript
 Task(subagent_type: "full-stack-orchestration:test-automator",
-  prompt: "Analyze test coverage and identify gaps",
+  prompt: "Analyze test coverage and identify gaps. Check: unit coverage 80%+, integration tests exist for key services, E2E tests cover all user stories.",
   run_in_background: true)
 ```
 
-#### Step 3.3: Compact After Test Review
+#### Step 3.4: Compact After Test Review
 ```
 🧪 Test Verification Summary:
+- Seed Data: PRESENT/MISSING
 - Unit Tests: X/Y passed (Z% coverage)
-- E2E Tests: X/Y passed
+- Integration Tests: X/Y passed (real DB)
+- E2E Tests: X/Y passed (user story-driven)
+- User Story Coverage: X/Y stories have E2E tests
 - Build: PASS/FAIL
 - TypeScript: PASS/FAIL
 - Lint: PASS/FAIL
@@ -246,12 +292,25 @@ name: qa-review
 
 ## Test Results
 
+### Seed Data
+- seed-test.ts: ✅ Present / ❌ Missing
+- db:seed:test: ✅ PASS / ❌ FAIL
+
 ### Unit Tests
 - Total: X | Passed: Y | Failed: Z
 - Coverage: X%
 
+### Integration Tests
+- Total: X | Passed: Y | Failed: Z
+- Real DB: ✅ Yes / ❌ No (mocked)
+
 ### E2E Tests
 - Total: X | Passed: Y | Failed: Z
+- Uses seed data: ✅ Yes / ❌ No (hardcoded)
+
+### User Story → E2E Coverage
+- User Stories: X | With E2E: Y | Missing: Z
+- Coverage: X%
 
 ### Build & Lint
 - Build: ✅ PASS / ❌ FAIL
@@ -307,11 +366,12 @@ name: qa-review
 
 ```
 🚀 Phase 0: Smoke Test (MANDATORY) - npm run dev must work!
-📋 Preparation (2-3 agents) → /compact
-🔍 Code Quality (3 agents) → /compact
-🔒 Security (2-3 agents) → /compact
-🧪 Tests → /compact
-✅ Decision & Report
+📋 Phase 1: Preparation (2-3 agents) → /compact
+🔍 Phase 2: Code Quality (3 agents) + Security (2-3 agents) → /compact
+🌱 Phase 3.0: Seed Data Setup
+🧪 Phase 3.1: Unit + Integration + E2E Tests
+🔗 Phase 3.2: User Story Traceability Check
+✅ Phase 4: Decision & Report
 ```
 
 ### Common Runtime Errors to Check

@@ -103,7 +103,35 @@ For each UI component:
   ✓ State management approach specified
 ```
 
-### 5. Constitution (CLAUDE.md) Compliance
+### 5. User Story → E2E Test Mapping (NEW in v2.2)
+
+Check that every user story has a planned E2E test:
+
+```
+For each user story in requirements/plan:
+  ✓ Has corresponding E2E test file planned (e2e/{feature}/{story}.spec.ts)
+  ✓ E2E test specifies which seed data to use
+  ✓ No user stories without planned E2E coverage
+
+For each planned E2E test:
+  ✓ References a user story (US-XXX)
+  ✓ Uses seed data credentials (TEST_USERS), not hardcoded
+  ✓ Has defined test scenarios (happy path + error cases)
+```
+
+### 6. Seed Data Planning
+
+Check that test data is planned:
+
+```
+Seed Data:
+  ✓ Plan includes Test Data Requirements section
+  ✓ TEST_USERS defined (standard, admin, empty)
+  ✓ Related test entities planned (products, orders, etc.)
+  ✓ Edge case data included (empty states, expired, suspended)
+```
+
+### 7. Constitution (CLAUDE.md) Compliance
 
 Check adherence to project standards:
 
@@ -117,6 +145,9 @@ Tech Stack:
 
 Patterns:
   ✓ Test coverage planned (>80%)
+  ✓ Integration tests planned for key services
+  ✓ E2E tests mapped to user stories
+  ✓ Seed data planned
   ✓ Follows file naming conventions
   ✓ Agent assignments are correct
 ```

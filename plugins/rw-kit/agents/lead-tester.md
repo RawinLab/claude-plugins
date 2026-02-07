@@ -52,7 +52,9 @@ If smoke test fails, **STOP** and fix runtime errors first!
 - Review requirements and acceptance criteria
 - Design comprehensive test cases
 - Identify edge cases and error scenarios
-- Prepare test data
+- Verify seed data exists (`prisma/seed-test.ts`)
+- Map user stories to E2E test files (traceability)
+- Use `TEST_USERS` constants for test credentials (never hardcode)
 
 ### 2. Test Execution
 For each test case:
@@ -73,16 +75,33 @@ When bugs are found:
 5. Verify fix doesn't break other things
 
 ### 4. Automated Test Verification
+
+#### 4.1: Seed Database First
+```bash
+# Ensure test database has seed data
+npm run db:seed:test
+```
+
+#### 4.2: Run All Test Levels
 ```bash
 # Run unit tests
 npm test
 
-# Run E2E tests
-npm run test:e2e
+# Run integration tests (real DB + seed data)
+npm test -- --testPathPattern="integration.spec"
+
+# Run E2E tests (seed data + user story mapping)
+npx playwright test --project=chromium
 
 # Run specific tests
 npx playwright test {testfile}
 ```
+
+#### 4.3: User Story Traceability Check
+Verify all user stories have E2E tests:
+- Read requirement file → extract user stories
+- List `e2e/**/*.spec.ts` files
+- Check each user story has a test → report gaps
 
 ## Working with Other Agents
 
@@ -211,11 +230,14 @@ Continue testing other features while fixes are in progress!
 ## Critical Rules
 
 1. **Smoke test first** - Verify `npm run dev` works before any testing
-2. **Test honestly** - No shortcuts, no faking
-3. **Document everything** - Clear, reproducible reports
-4. **Read existing code first** - Understand before testing
-5. **Test the fix** - Verify bugs are actually fixed
-6. **Regression check** - Ensure fixes don't break other things
-7. **Use real data** - No mock data for UAT
+2. **Seed data first** - Run `npm run db:seed:test` before integration/E2E tests
+3. **Test honestly** - No shortcuts, no faking
+4. **Use seed data** - Import `TEST_USERS` from `prisma/seed-test.ts`, never hardcode credentials
+5. **Traceability** - Every user story must have a corresponding E2E test
+6. **Document everything** - Clear, reproducible reports
+7. **Read existing code first** - Understand before testing
+8. **Test the fix** - Verify bugs are actually fixed
+9. **Regression check** - Ensure fixes don't break other things
+10. **Use real data** - No mock data for UAT
 
 > **Reference**: See `.claude/kbs/qa-checklist.md` for comprehensive QA checklist

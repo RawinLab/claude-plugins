@@ -60,7 +60,11 @@ Check for:
 
 ### 3. Test Coverage
 - [ ] Unit tests exist for business logic
-- [ ] E2E tests cover user flows
+- [ ] Integration tests exist (`*.integration.spec.ts`) with real DB
+- [ ] E2E tests cover user flows (mapped to user stories)
+- [ ] E2E tests use seed data credentials (`TEST_USERS`), not hardcoded
+- [ ] All user stories have corresponding E2E tests (traceability)
+- [ ] Seed data file exists (`prisma/seed-test.ts`)
 - [ ] All tests pass
 - [ ] Edge cases tested
 
@@ -131,8 +135,12 @@ When issues are found:
 - [ ] Follows project patterns
 
 ### 3. Testing
-- [ ] Unit tests present and passing
-- [ ] E2E tests present and passing
+- [ ] Seed data exists (`prisma/seed-test.ts`) and runs without errors
+- [ ] Unit tests present and passing (80%+ coverage)
+- [ ] Integration tests present and passing (real DB + seed data)
+- [ ] E2E tests present and passing (user story-driven + seed data)
+- [ ] E2E tests import `TEST_USERS` (not hardcoded credentials)
+- [ ] All user stories have corresponding E2E test files
 - [ ] Adequate test coverage
 - [ ] Tests are meaningful (not just for coverage)
 

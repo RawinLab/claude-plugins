@@ -14,12 +14,14 @@ Analyze and improve test coverage for `$ARGUMENTS` to achieve 80%+ coverage.
 
 ## Coverage Targets
 
-| Project | Target Coverage |
-|---------|-----------------|
-| API (apps/api) | 85% |
-| Web (apps/web) | 80% |
-| Database | 90% |
-| Overall | 80% |
+| Test Level | Target |
+|------------|--------|
+| API Unit (apps/api) | 85% line coverage |
+| Web Unit (apps/web) | 80% line coverage |
+| Database | 90% line coverage |
+| Overall Unit | 80% line coverage |
+| Integration | Key services have `*.integration.spec.ts` |
+| E2E | All user stories have corresponding `e2e/**/*.spec.ts` |
 
 ---
 name: test-coverage
@@ -177,26 +179,102 @@ describe('switch defaults', () => {
 ---
 name: test-coverage
 
+### Phase 3.5: Integration Test Coverage (NEW)
+
+> **NEW in v2.2**: Check integration test coverage alongside unit coverage.
+
+#### Step 3.5.1: Check Integration Tests Exist
+```javascript
+// Find integration test files
+Glob({ pattern: "**/*.integration.spec.ts" })
+```
+
+#### Step 3.5.2: Map Services to Integration Tests
+
+| Service | Integration Test | Status |
+|---------|-----------------|--------|
+| AuthService | `auth.integration.spec.ts` | ✅ / ❌ |
+| UserService | `user.integration.spec.ts` | ✅ / ❌ |
+| ProductService | `product.integration.spec.ts` | ✅ / ❌ |
+
+**If missing**: Create integration tests with `/rw-kit:create-integration-tests`
+
+#### Step 3.5.3: Run Integration Tests
+```bash
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec"
+```
+
+---
+name: test-coverage
+
+### Phase 3.6: E2E User Story Coverage (NEW)
+
+> **NEW in v2.2**: Verify all user stories have E2E tests.
+
+#### Step 3.6.1: Extract User Stories
+```javascript
+// Read requirement/plan files
+Glob({ pattern: "requirements/*.md" })
+Glob({ pattern: "plans/*-plan.md" })
+// Extract user stories (patterns: "As a...", "US-XXX:")
+```
+
+#### Step 3.6.2: Map User Stories to E2E Tests
+```javascript
+// List E2E test files
+Glob({ pattern: "e2e/**/*.spec.ts" })
+```
+
+**Coverage Report:**
+```markdown
+| User Story | E2E Test File | Status |
+|------------|---------------|--------|
+| US-001: User login | e2e/auth/login.spec.ts | ✅ Covered |
+| US-002: User register | e2e/auth/register.spec.ts | ✅ Covered |
+| US-003: View products | (none) | ❌ MISSING |
+
+E2E User Story Coverage: 2/3 (67%) → Target: 100%
+```
+
+**If gaps found**: Create E2E tests with `/rw-kit:create-e2e`
+
+#### Step 3.6.3: Verify E2E Tests Use Seed Data
+```bash
+# Check E2E tests import TEST_USERS (good) vs hardcoded credentials (bad)
+grep -r "TEST_USERS" e2e/ --include="*.spec.ts" | wc -l
+grep -r "password123" e2e/ --include="*.spec.ts" | wc -l  # Should be 0
+```
+
+---
+name: test-coverage
+
 ### Phase 4: Verify Improvement
 
-#### Step 4.1: Re-run Coverage
+#### Step 4.1: Re-run All Coverage
 ```bash
+# Unit coverage
 npm test -- --coverage
+
+# Integration tests
+npm run db:seed:test && npm test -- --testPathPattern="integration.spec"
+
+# E2E tests
+npm run db:seed:test && npx playwright test --project=chromium
 ```
 
 #### Step 4.2: Compare Before/After
 ```
-Before:
-- Statements: 65%
-- Branches: 55%
-- Functions: 70%
-- Lines: 65%
+Unit Coverage:
+  Before: Statements 65%, Branches 55%, Functions 70%, Lines 65%
+  After:  Statements 85%, Branches 80%, Functions 90%, Lines 85% ✅
 
-After:
-- Statements: 85% ✅
-- Branches: 80% ✅
-- Functions: 90% ✅
-- Lines: 85% ✅
+Integration Coverage:
+  Before: 0 services covered
+  After:  5 key services have integration tests ✅
+
+E2E User Story Coverage:
+  Before: 2/5 user stories (40%)
+  After:  5/5 user stories (100%) ✅
 ```
 
 #### Step 4.3: Generate HTML Report
@@ -211,11 +289,13 @@ name: test-coverage
 ## Coverage Improvement Workflow
 
 ```
-1. Generate Report → Identify < 80%
+1. Generate Unit Report → Identify < 80%
 2. Analyze Gaps → Find uncovered patterns
-3. Create Tests → Focus on gaps
-4. Re-run → Verify improvement
-5. Repeat → Until 80%+ achieved
+3. Create Unit Tests → Focus on gaps
+4. Check Integration Coverage → Key services have *.integration.spec.ts
+5. Check E2E Coverage → All user stories have e2e/**/*.spec.ts
+6. Re-run All → Verify improvement
+7. Repeat → Until all targets achieved
 ```
 
 ---
@@ -274,9 +354,10 @@ name: test-coverage
 
 ## After Completion
 
-1. ✅ Coverage report generated
-2. ✅ Gaps identified and documented
-3. ✅ Missing tests created
-4. ✅ Coverage improved to 80%+
-5. ✅ All tests passing
-6. 📋 Coverage meets project standards
+1. ✅ Unit coverage report generated (80%+)
+2. ✅ Integration test coverage checked (key services covered)
+3. ✅ E2E user story coverage checked (all stories have tests)
+4. ✅ Gaps identified and documented
+5. ✅ Missing tests created
+6. ✅ All tests passing
+7. 📋 Coverage meets project standards
