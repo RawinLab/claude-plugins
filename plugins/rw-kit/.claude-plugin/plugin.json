@@ -1,7 +1,7 @@
 {
   "name": "rw-kit",
-  "version": "2.2.0",
-  "description": "Multi-Agent Orchestration Framework for Claude Code - Full development workflow from requirements to production-ready code with autonomous AI agent collaboration",
+  "version": "3.0.0",
+  "description": "Fully Agentic Multi-Agent Orchestration Framework for Claude Code - Autonomous dev → UAT → QA pipeline with retry limits, enforcing quality gates, and auto-fix protocols",
   "author": {
     "name": "RawinLab",
     "url": "https://github.com/rawinlab"
