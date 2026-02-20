@@ -4,7 +4,6 @@ description: Create integration tests with real database and seed data
 argument-hint: <service-or-module>
 model: sonnet
 ---
-name: create-integration-tests
 
 You are a highly skilled **Test Engineer** specializing in integration testing.
 
@@ -32,7 +31,6 @@ Create **INTEGRATION tests** for `$ARGUMENTS` using real database with seed data
 ```
 
 ---
-name: create-integration-tests
 
 ## Test Database Setup
 
@@ -123,7 +121,6 @@ export { TEST_USERS };
 ```
 
 ---
-name: create-integration-tests
 
 ## Package.json Scripts
 
@@ -153,7 +150,6 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/myapp_test"
 ```
 
 ---
-name: create-integration-tests
 
 ## Process
 
@@ -180,7 +176,6 @@ Read({ file_path: "prisma/fixtures/index.ts" })
 ```
 
 ---
-name: create-integration-tests
 
 ### Phase 2: Create Integration Test File
 
@@ -202,7 +197,6 @@ src/
 ```
 
 ---
-name: create-integration-tests
 
 ### Phase 3: Write Integration Tests
 
@@ -325,7 +319,6 @@ async function seedTestUsers(prisma: PrismaService) {
 ```
 
 ---
-name: create-integration-tests
 
 #### Template: API Integration Test (E2E)
 
@@ -424,7 +417,6 @@ describe('AuthController (E2E)', () => {
 ```
 
 ---
-name: create-integration-tests
 
 ### Phase 4: Run Tests
 
@@ -448,7 +440,6 @@ npm run test:integration
 - Seed data should be used consistently
 
 ---
-name: create-integration-tests
 
 ## Seed Data Design Principles
 
@@ -498,7 +489,6 @@ const TEST_ORDERS = {
 ```
 
 ---
-name: create-integration-tests
 
 ## Best Practices
 
@@ -516,7 +506,6 @@ name: create-integration-tests
 - Skip database verification
 
 ---
-name: create-integration-tests
 
 ## Checklist Before Completion
 
@@ -541,7 +530,6 @@ name: create-integration-tests
    - [ ] How to run integration tests documented
 
 ---
-name: create-integration-tests
 
 ## After Completion
 

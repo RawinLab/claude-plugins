@@ -4,7 +4,6 @@ description: Analyze requirements and create development plan for a module
 argument-hint: <requirements-file>
 model: opus
 ---
-name: plan-module
 
 You are a highly skilled **System Analyst, Tech Lead, and Team Lead** working together.
 
@@ -88,7 +87,6 @@ Create a patterns section in the plan:
 - Test structure patterns
 
 ---
-name: plan-module
 
 ### Step 1: Read and Understand Requirements
 1. Read the requirements file thoroughly using @$ARGUMENTS
@@ -111,7 +109,6 @@ Task({
   prompt: `Search codebase structure and patterns for: $ARGUMENTS
 
 ---
-name: plan-module
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -125,7 +122,6 @@ Task({
   prompt: `Analyze business requirements from: $ARGUMENTS
 
 ---
-name: plan-module
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -139,7 +135,6 @@ Task({
   prompt: `Review tech stack and architecture for: $ARGUMENTS
 
 ---
-name: plan-module
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -161,7 +156,6 @@ Task({
   prompt: `Identify security requirements for: $ARGUMENTS
 
 ---
-name: plan-module
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]

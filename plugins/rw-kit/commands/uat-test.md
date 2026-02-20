@@ -4,7 +4,6 @@ description: Perform UAT testing on implemented features
 argument-hint: <todolist-or-testcase-file>
 model: sonnet
 ---
-name: uat-test
 
 You are a highly skilled **Lead Tester** with expertise in application testing.
 
@@ -40,7 +39,6 @@ Perform UAT (User Acceptance Testing) on implemented features from `$ARGUMENTS`.
 - Re-test after fixes
 
 ---
-name: uat-test
 
 ## Testing Process (5 Phases)
 
@@ -66,7 +64,6 @@ Task(subagent_type: "lead-tester", prompt: "Review test cases and create executi
 ```
 
 ---
-name: uat-test
 
 ### Phase 2: Environment Setup & Smoke Test
 
@@ -149,7 +146,6 @@ Before testing, confirm available test accounts:
 > **Use these credentials** for manual UAT instead of creating new accounts!
 
 ---
-name: uat-test
 
 ### Phase 3: Automated Tests First
 
@@ -247,7 +243,6 @@ Task(subagent_type: "multi-platform-apps:frontend-developer", prompt: "Fix E2E t
 ```
 
 ---
-name: uat-test
 
 ### Phase 4: Manual UAT Testing
 
@@ -307,7 +302,6 @@ For each test case, record:
 ```
 
 ---
-name: uat-test
 
 ### Phase 5: Final Report
 
@@ -360,11 +354,10 @@ Coverage: X/Y user stories have E2E tests (Z%)
 **Status**: ✅ READY FOR QA REVIEW / ❌ NEEDS FIXES
 
 ## Next Steps
-- [ ] QA Review: `/project:qa-review {module}`
+- [ ] QA Review: `/rw-kit:qa-review {module}`
 ```
 
 ---
-name: uat-test
 
 ## Quick Reference: Context Management
 
@@ -382,7 +375,6 @@ name: uat-test
 > **Reference**: See `.claude/kbs/qa-checklist.md` for comprehensive checklist
 
 ---
-name: uat-test
 
 ## After Completion
 
@@ -393,4 +385,4 @@ name: uat-test
 5. ✅ All UAT test cases executed
 6. ✅ Issues found and fixed
 7. ✅ UAT report created in `docs/reports/` (includes traceability matrix)
-8. 📋 Ready for `/project:qa-review {module}`
+8. 📋 Ready for `/rw-kit:qa-review {module}`

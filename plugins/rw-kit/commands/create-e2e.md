@@ -4,7 +4,6 @@ description: Create Playwright E2E tests with seed data and user story mapping
 argument-hint: <feature-or-user-flow>
 model: sonnet
 ---
-name: create-e2e
 
 You are a highly skilled **E2E Test Engineer** specializing in Playwright test creation with **seed data** and **user story traceability**.
 
@@ -39,7 +38,6 @@ e2e/
 ```
 
 ---
-name: create-e2e
 
 ## Phase 0: Seed Data & Environment Setup (MANDATORY)
 
@@ -146,7 +144,6 @@ export default defineConfig({
 ```
 
 ---
-name: create-e2e
 
 ## Phase 1: User Story → E2E Mapping
 
@@ -184,7 +181,6 @@ For each test scenario, determine:
 - Any additional test data to create in global setup
 
 ---
-name: create-e2e
 
 ## Phase 2: Create Page Objects
 
@@ -250,7 +246,6 @@ export class LoginPage extends BasePage {
 ```
 
 ---
-name: create-e2e
 
 ## Phase 3: Create Test Specs (User Story-Driven)
 
@@ -342,7 +337,6 @@ test.describe('US-010: Admin Dashboard', () => {
 ```
 
 ---
-name: create-e2e
 
 ## Phase 4: Analyze Feature & Create Tests
 
@@ -368,7 +362,6 @@ For each user story:
 - Permission scenarios (if applicable)
 
 ---
-name: create-e2e
 
 ## Phase 5: Run & Verify
 
@@ -416,7 +409,6 @@ Glob({ pattern: "e2e/**/*.spec.ts" })
 ```
 
 ---
-name: create-e2e
 
 ## Test Data Reference
 
@@ -438,7 +430,6 @@ name: create-e2e
 - **ALWAYS** use `TEST_USERS.{type}.email` and `TEST_USERS.{type}.password`
 
 ---
-name: create-e2e
 
 ## Test Scenarios Template
 
@@ -475,7 +466,6 @@ test.describe('US-005: Contact Form', () => {
 ```
 
 ---
-name: create-e2e
 
 ## Best Practices
 
@@ -499,7 +489,6 @@ name: create-e2e
 - Write E2E tests without a corresponding user story
 
 ---
-name: create-e2e
 
 ## After Completion
 

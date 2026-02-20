@@ -218,7 +218,7 @@ These were not critical for initial implementation:
 - [x] Clarifications recorded
 
 Clarified on: {timestamp}
-Clarified by: /project:clarify
+Clarified by: /rw-kit:clarify
 `
 })
 ```
@@ -266,7 +266,7 @@ Clarified by: /project:clarify
 ## Integration with Workflow
 
 ```
-/project:clarify requirements/01-user-auth.md
+/rw-kit:clarify requirements/01-user-auth.md
          │
          ▼
     Ask up to 5 questions
@@ -275,7 +275,7 @@ Clarified by: /project:clarify
     Create requirements/01-user-auth-clarified.md
          │
          ▼
-/project:plan-module requirements/01-user-auth-clarified.md
+/rw-kit:plan-module requirements/01-user-auth-clarified.md
 ```
 
 ---
@@ -285,4 +285,4 @@ Clarified by: /project:clarify
 1. Clarified requirements file created
 2. All critical ambiguities resolved
 3. Assumptions documented
-4. Ready for `/project:plan-module` with clarified input
+4. Ready for `/rw-kit:plan-module` with clarified input

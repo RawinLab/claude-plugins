@@ -92,7 +92,7 @@ Before proceeding to planning:
 |-------|-------|
 | Original File | {requirements file path} |
 | Clarified On | {timestamp} |
-| Clarified By | `/project:clarify` |
+| Clarified By | `/rw-kit:clarify` |
 | Questions Asked | {count} |
 | Clarifications Made | {count} |
 | Assumptions Made | {count} |

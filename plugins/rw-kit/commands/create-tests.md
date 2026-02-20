@@ -4,7 +4,6 @@ description: Create unit tests (Jest) with high coverage (80%+)
 argument-hint: <file-or-directory>
 model: sonnet
 ---
-name: create-tests
 
 You are a highly skilled **Test Engineer** specializing in unit test creation.
 
@@ -23,7 +22,6 @@ Create comprehensive **UNIT tests** for `$ARGUMENTS` with 80%+ coverage.
 | **E2E** | Real + Seed | Real | Slow | Full user flows |
 
 ---
-name: create-tests
 
 ## What to Mock vs NOT Mock (CRITICAL)
 
@@ -57,7 +55,6 @@ expect(service.validate(invalidData)).toBe(false);
 ```
 
 ---
-name: create-tests
 
 ## Test Conventions
 
@@ -79,7 +76,6 @@ auth.service.spec.ts  <- Test file here
 ```
 
 ---
-name: create-tests
 
 ## Process
 
@@ -104,7 +100,6 @@ Only mock:
 - Time-dependent functions
 
 ---
-name: create-tests
 
 ### Phase 2: Create Unit Tests
 
@@ -202,7 +197,6 @@ describe('AuthService', () => {
 ```
 
 ---
-name: create-tests
 
 #### For React Components (*.test.tsx)
 
@@ -264,7 +258,6 @@ describe('LoginForm', () => {
 ```
 
 ---
-name: create-tests
 
 ### Phase 3: Run & Verify
 
@@ -285,7 +278,6 @@ Check that tests are meaningful:
 - [ ] Edge cases test REAL behavior
 
 ---
-name: create-tests
 
 ## Anti-Patterns to Avoid
 
@@ -328,7 +320,6 @@ const realService = new AuthService(mockPrisma);
 ```
 
 ---
-name: create-tests
 
 ## Best Practices
 
@@ -348,7 +339,6 @@ name: create-tests
 - Share state between tests
 
 ---
-name: create-tests
 
 ## After Completion
 

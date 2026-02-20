@@ -4,7 +4,6 @@ description: Analyze and improve test coverage (target 80%+)
 argument-hint: <project-or-directory>
 model: sonnet
 ---
-name: test-coverage
 
 You are a highly skilled **Test Coverage Engineer** specializing in test coverage analysis and improvement.
 
@@ -24,7 +23,6 @@ Analyze and improve test coverage for `$ARGUMENTS` to achieve 80%+ coverage.
 | E2E | All user stories have corresponding `e2e/**/*.spec.ts` |
 
 ---
-name: test-coverage
 
 ## Process
 
@@ -51,7 +49,6 @@ Coverage report shows:
 - **Lines**: Physical lines covered
 
 ---
-name: test-coverage
 
 ### Phase 2: Identify Coverage Gaps
 
@@ -78,7 +75,6 @@ Look for:
 | Async errors | `try/catch` | Use `.rejects.toThrow()` |
 
 ---
-name: test-coverage
 
 ### Phase 3: Create Missing Tests
 
@@ -97,7 +93,6 @@ Focus on:
 - Edge cases
 
 ---
-name: test-coverage
 RESPONSE FORMAT (CRITICAL):
 When complete, respond with ONLY:
 DONE: [1-2 sentence summary]
@@ -177,7 +172,6 @@ describe('switch defaults', () => {
 ```
 
 ---
-name: test-coverage
 
 ### Phase 3.5: Integration Test Coverage (NEW)
 
@@ -205,7 +199,6 @@ npm run db:seed:test && npm test -- --testPathPattern="integration.spec"
 ```
 
 ---
-name: test-coverage
 
 ### Phase 3.6: E2E User Story Coverage (NEW)
 
@@ -246,7 +239,6 @@ grep -r "password123" e2e/ --include="*.spec.ts" | wc -l  # Should be 0
 ```
 
 ---
-name: test-coverage
 
 ### Phase 4: Verify Improvement
 
@@ -284,7 +276,6 @@ npm test -- --coverage --coverageReporters="html"
 ```
 
 ---
-name: test-coverage
 
 ## Coverage Improvement Workflow
 
@@ -299,7 +290,6 @@ name: test-coverage
 ```
 
 ---
-name: test-coverage
 
 ## Quick Commands
 
@@ -324,7 +314,6 @@ npm test -- --coverage --coverageThreshold='{"global":{"lines":80}}'
 ```
 
 ---
-name: test-coverage
 
 ## Jest Config for Coverage
 
@@ -350,7 +339,6 @@ module.exports = {
 ```
 
 ---
-name: test-coverage
 
 ## After Completion
 
