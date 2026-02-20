@@ -1,6 +1,8 @@
 # Context Management Guide for Claude Code
 
 > Maximize effective context usage and simulate "unlimited" context window
+>
+> **Related**: See `.claude/kbs/scheduling-pattern.md` for batch execution patterns (the primary reference for batch + compact workflow).
 
 ## Overview
 

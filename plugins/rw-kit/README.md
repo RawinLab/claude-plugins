@@ -42,7 +42,7 @@ RW-Kit is a comprehensive multi-agent orchestration framework that enables fully
 ### Core Features
 
 - 5 Custom Agents (SA, Tech Lead, Team Lead, Tester, QA)
-- 12 Slash Commands for full development lifecycle
+- 13 Slash Commands for full development lifecycle
 - Auto-answer hooks for unattended operation
 - State management with resume capability
 - 99% context savings with minimal output template
@@ -63,6 +63,7 @@ RW-Kit is a comprehensive multi-agent orchestration framework that enables fully
 | `/rw-kit:test-coverage` | Analyze test coverage |
 | `/rw-kit:uat-test` | User acceptance testing with traceability check |
 | `/rw-kit:qa-review` | Final quality review |
+| `/rw-kit:status` | View execution progress and quality gates |
 
 ## Workflow (10 Phases)
 

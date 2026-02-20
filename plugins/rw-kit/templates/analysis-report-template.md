@@ -8,6 +8,8 @@
 | Plan → Tasks Coverage | PASS/FAIL | {count} | {count} |
 | Dependency Graph | PASS/FAIL | {count} | {count} |
 | Exact Contracts | PASS/FAIL | {count} | {count} |
+| User Story → E2E Mapping | PASS/FAIL | {count} | {count} |
+| Seed Data Planning | PASS/FAIL | {count} | {count} |
 | Constitution Compliance | PASS/FAIL | {count} | {count} |
 
 **Overall Status**: `READY` / `BLOCKING_ISSUES_FOUND`

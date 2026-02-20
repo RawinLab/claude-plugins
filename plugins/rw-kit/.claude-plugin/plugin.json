@@ -31,7 +31,8 @@
     "./commands/create-e2e.md",
     "./commands/test-coverage.md",
     "./commands/uat-test.md",
-    "./commands/qa-review.md"
+    "./commands/qa-review.md",
+    "./commands/status.md"
   ],
   "agents": [
     "./agents/sa-analyst.md",

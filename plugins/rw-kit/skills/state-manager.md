@@ -1,21 +1,21 @@
 ---
 name: state-manager
-description: Manage rw-kit execution state file - read, update, resume, and track progress
+description: Manage rw-kit execution state file - read, update, resume, and track progress with retry limits, quality gates, and 3-layer verification
 ---
 
 # State Manager Skill
 
-Manage the rw-kit execution state file for tracking progress and enabling resume.
+Manage the rw-kit execution state file for tracking progress, retries, quality gates, and enabling resume.
 
 ## State File Location
 
 Always: `.claude/rw-kit.state.json`
 
-## State File Structure
+## State File Structure (v3.0.0)
 
 ```json
 {
-  "version": "1.0.0",
+  "version": "3.0.0",
   "session_id": "exec-20251230-143022",
   "started_at": "2025-12-30T14:30:22Z",
   "updated_at": "2025-12-30T15:15:45Z",
@@ -24,17 +24,30 @@ Always: `.claude/rw-kit.state.json`
   "config": {
     "todolist_path": "plans/1-1-user-auth-todolist.md",
     "plan_path": "plans/1-1-user-auth-plan.md",
+    "clarified_requirements_path": "",
+    "analysis_report_path": "",
     "project_name": "my-project",
     "project_path": "/home/dev/projects/my-project",
     "auto_answer": true
+  },
+
+  "user_stories": {
+    "US-001": {
+      "title": "User can login",
+      "total_tasks": 3,
+      "completed_tasks": 2,
+      "status": "in_progress"
+    }
   },
 
   "progress": {
     "total_tasks": 15,
     "completed": 8,
     "in_progress": 2,
-    "pending": 5,
-    "failed": 0
+    "pending": 3,
+    "failed": 0,
+    "verified": 7,
+    "blocked": 2
   },
 
   "tasks": {
@@ -43,11 +56,18 @@ Always: `.claude/rw-kit.state.json`
       "status": "completed",
       "agent": "backend-development:backend-architect",
       "batch_id": 0,
+      "story_id": "US-001",
       "dependencies": [],
       "started_at": "2025-12-30T14:30:30Z",
       "completed_at": "2025-12-30T14:35:12Z",
       "files_modified": ["packages/database/schema.prisma"],
-      "error": null
+      "files_mentioned": ["packages/database/schema.prisma"],
+      "error": null,
+      "verification": {
+        "agent_done": true,
+        "files_exist": true,
+        "state_synced": true
+      }
     }
   },
 
@@ -63,6 +83,25 @@ Always: `.claude/rw-kit.state.json`
   ],
 
   "current_batch": null,
+
+  "retry_counts": {
+    "task-003": 2
+  },
+
+  "quality_gates": {
+    "unit_tests": "passed",
+    "integration_tests": "passed",
+    "e2e_tests": "degraded",
+    "smoke_test": "passed",
+    "uat": "passed",
+    "qa_review": "approved"
+  },
+
+  "qa_cycles": 1,
+
+  "blocked_tasks": ["task-007"],
+
+  "degraded_phases": ["e2e_tests"],
 
   "resume_point": {
     "batch_id": 1,
@@ -87,7 +126,6 @@ Always: `.claude/rw-kit.state.json`
 ### Initialize State
 
 ```bash
-# Create new state file from template
 session_id="exec-$(date +%Y%m%d-%H%M%S)"
 ts=$(date -Iseconds)
 
@@ -105,35 +143,35 @@ jq --arg sid "$session_id" --arg ts "$ts" --arg todolist "$TODOLIST_PATH" --arg 
 ### Read Current State
 
 ```bash
-# Full state
-cat .claude/rw-kit.state.json | jq '.'
-
-# Progress only
+jq '.' .claude/rw-kit.state.json
 jq '.progress' .claude/rw-kit.state.json
-
-# Current batch
-jq '.current_batch' .claude/rw-kit.state.json
-
-# Resume point
+jq '.quality_gates' .claude/rw-kit.state.json
+jq '.blocked_tasks' .claude/rw-kit.state.json
+jq '.degraded_phases' .claude/rw-kit.state.json
 jq '.resume_point' .claude/rw-kit.state.json
 ```
 
-### Add Tasks from TodoList
+### Add Task (with verification and story tracking)
 
 ```bash
-# Parse todolist and add tasks to state
-# Each task gets: task-NNN id, description, agent, dependencies
-jq --arg tid "task-001" --arg desc "Create Prisma schema" --arg agent "backend-architect" '
+jq --arg tid "task-001" --arg desc "Create Prisma schema" --arg agent "backend-architect" --arg sid "US-001" '
   .tasks[$tid] = {
     "description": $desc,
     "status": "pending",
     "agent": $agent,
     "batch_id": null,
+    "story_id": $sid,
     "dependencies": [],
     "started_at": null,
     "completed_at": null,
     "files_modified": [],
-    "error": null
+    "files_mentioned": [],
+    "error": null,
+    "verification": {
+      "agent_done": false,
+      "files_exist": false,
+      "state_synced": false
+    }
   } |
   .progress.total_tasks += 1 |
   .progress.pending += 1 |
@@ -142,41 +180,9 @@ jq --arg tid "task-001" --arg desc "Create Prisma schema" --arg agent "backend-a
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 ```
 
-### Create Batch
-
-```bash
-# Create new batch with task IDs
-jq --argjson bid 0 --argjson tasks '["task-001", "task-002", "task-003"]' --arg ts "$(date -Iseconds)" '
-  .batches += [{
-    "batch_id": $bid,
-    "task_ids": $tasks,
-    "status": "pending",
-    "started_at": null,
-    "completed_at": null,
-    "compacted": false
-  }] |
-  .updated_at = $ts
-' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
-mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
-```
-
-### Start Batch
-
-```bash
-# Mark batch as in_progress
-jq --argjson bid 0 --arg ts "$(date -Iseconds)" '
-  .batches[$bid].status = "in_progress" |
-  .batches[$bid].started_at = $ts |
-  .current_batch = $bid |
-  .updated_at = $ts
-' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
-mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
-```
-
 ### Claim Task for Execution
 
 ```bash
-# Mark task as in_progress
 jq --arg tid "task-001" --arg ts "$(date -Iseconds)" '
   .tasks[$tid].status = "in_progress" |
   .tasks[$tid].started_at = $ts |
@@ -187,14 +193,15 @@ jq --arg tid "task-001" --arg ts "$(date -Iseconds)" '
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 ```
 
-### Mark Task Complete
+### Mark Task Complete (Layer 1: Agent Done)
 
 ```bash
-# Update task status and progress
 jq --arg tid "task-001" --arg ts "$(date -Iseconds)" --argjson files '["src/auth/auth.service.ts"]' '
   .tasks[$tid].status = "completed" |
   .tasks[$tid].completed_at = $ts |
   .tasks[$tid].files_modified = $files |
+  .tasks[$tid].files_mentioned = $files |
+  .tasks[$tid].verification.agent_done = true |
   .progress.completed += 1 |
   .progress.in_progress -= 1 |
   .updated_at = $ts
@@ -202,13 +209,34 @@ jq --arg tid "task-001" --arg ts "$(date -Iseconds)" --argjson files '["src/auth
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 ```
 
-### Mark Task Failed
+### Verify Task Files (Layer 2: Files Exist)
 
 ```bash
-# Update task status with error
+jq --arg tid "task-001" --arg ts "$(date -Iseconds)" '
+  .tasks[$tid].verification.files_exist = true |
+  .updated_at = $ts
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+```
+
+### Sync Task State (Layer 3: State Synced)
+
+```bash
+jq --arg tid "task-001" --arg ts "$(date -Iseconds)" '
+  .tasks[$tid].verification.state_synced = true |
+  .progress.verified += 1 |
+  .updated_at = $ts
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+```
+
+### Mark Task Failed (with retry tracking)
+
+```bash
 jq --arg tid "task-001" --arg ts "$(date -Iseconds)" --arg error "Build failed: missing dependency" '
   .tasks[$tid].status = "failed" |
   .tasks[$tid].error = $error |
+  .retry_counts[$tid] = ((.retry_counts[$tid] // 0) + 1) |
   .progress.failed += 1 |
   .progress.in_progress -= 1 |
   .updated_at = $ts
@@ -216,10 +244,72 @@ jq --arg tid "task-001" --arg ts "$(date -Iseconds)" --arg error "Build failed: 
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 ```
 
-### Complete Batch
+### Mark Task Blocked (after 3 retries)
 
 ```bash
-# Mark batch as completed and set compacted flag
+jq --arg tid "task-001" --arg ts "$(date -Iseconds)" '
+  .tasks[$tid].status = "blocked" |
+  .blocked_tasks += [$tid] |
+  .progress.blocked += 1 |
+  .progress.failed -= 1 |
+  .updated_at = $ts |
+  .logs += [{"timestamp": $ts, "level": "error", "message": ("Task " + $tid + " BLOCKED after 3 retries")}]
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+```
+
+### Update Quality Gate
+
+```bash
+jq --arg gate "unit_tests" --arg status "passed" --arg ts "$(date -Iseconds)" '
+  .quality_gates[$gate] = $status |
+  .updated_at = $ts
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+```
+
+### Mark Phase Degraded
+
+```bash
+jq --arg phase "e2e_tests" --arg ts "$(date -Iseconds)" '
+  .degraded_phases += [$phase] |
+  .quality_gates[$phase] = "degraded" |
+  .updated_at = $ts |
+  .logs += [{"timestamp": $ts, "level": "warning", "message": ("Phase " + $phase + " DEGRADED after max fix attempts")}]
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+```
+
+### Increment QA Cycle
+
+```bash
+jq --arg ts "$(date -Iseconds)" '
+  .qa_cycles += 1 |
+  .updated_at = $ts
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+```
+
+### Create/Complete Batch
+
+```bash
+# Create batch
+jq --argjson bid 0 --argjson tasks '["task-001", "task-002"]' --arg ts "$(date -Iseconds)" '
+  .batches += [{"batch_id": $bid, "task_ids": $tasks, "status": "pending", "started_at": null, "completed_at": null, "compacted": false}] |
+  .updated_at = $ts
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+
+# Start batch
+jq --argjson bid 0 --arg ts "$(date -Iseconds)" '
+  .batches[$bid].status = "in_progress" |
+  .batches[$bid].started_at = $ts |
+  .current_batch = $bid |
+  .updated_at = $ts
+' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
+mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
+
+# Complete batch
 jq --argjson bid 0 --arg ts "$(date -Iseconds)" '
   .batches[$bid].status = "completed" |
   .batches[$bid].completed_at = $ts |
@@ -230,51 +320,32 @@ jq --argjson bid 0 --arg ts "$(date -Iseconds)" '
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 ```
 
-### Set Resume Point
+### Set/Check Resume Point
 
 ```bash
-# Save resume point for later continuation
+# Set resume point
 jq --argjson bid 1 --arg tid "task-005" --arg phase "implementation" --arg ts "$(date -Iseconds)" '
-  .resume_point.batch_id = $bid |
-  .resume_point.task_id = $tid |
-  .resume_point.phase = $phase |
+  .resume_point = {"batch_id": $bid, "task_id": $tid, "phase": $phase} |
   .updated_at = $ts
 ' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
-```
 
-### Check Resume Point
-
-```bash
-# Get resume information
+# Check resume point
+resume_phase=$(jq -r '.resume_point.phase // empty' .claude/rw-kit.state.json)
 resume_batch=$(jq -r '.resume_point.batch_id // empty' .claude/rw-kit.state.json)
-resume_task=$(jq -r '.resume_point.task_id // empty' .claude/rw-kit.state.json)
-
-if [ -n "$resume_batch" ]; then
-  echo "Resume from batch $resume_batch, task $resume_task"
+if [ -n "$resume_phase" ]; then
+  echo "Resume from: Phase $resume_phase, Batch $resume_batch"
 fi
-```
-
-### Find Next Pending Task
-
-```bash
-# Get first pending task
-jq -r '
-  .tasks | to_entries
-  | map(select(.value.status == "pending"))
-  | first
-  | .key // empty
-' .claude/rw-kit.state.json
 ```
 
 ### Complete Execution
 
 ```bash
-# Mark execution as completed
 jq --arg ts "$(date -Iseconds)" '
   .status = "completed" |
   .updated_at = $ts |
-  .resume_point = { "batch_id": null, "task_id": null, "phase": null }
+  .resume_point = {"batch_id": null, "task_id": null, "phase": null} |
+  .logs += [{"timestamp": $ts, "level": "info", "message": "Full pipeline completed"}]
 ' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 ```
@@ -282,13 +353,8 @@ mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 ### Add Log Entry
 
 ```bash
-# Append log message
 jq --arg ts "$(date -Iseconds)" --arg level "info" --arg msg "Batch 0 completed" '
-  .logs += [{
-    "timestamp": $ts,
-    "level": $level,
-    "message": $msg
-  }] |
+  .logs += [{"timestamp": $ts, "level": $level, "message": $msg}] |
   .updated_at = $ts
 ' .claude/rw-kit.state.json > .claude/rw-kit.state.json.tmp && \
 mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
@@ -309,12 +375,28 @@ mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 - `pending` - Not started
 - `in_progress` - Currently executing
 - `completed` - Done successfully
-- `failed` - Failed with error
+- `failed` - Failed with error (may retry)
+- `blocked` - Failed after 3 retries, skipped
 
 ### Batch Status
 - `pending` - Not started
 - `in_progress` - Tasks running
 - `completed` - All tasks done
+
+### Quality Gate Values
+- `null` - Not yet evaluated
+- `"passed"` - Gate passed
+- `"degraded"` - Gate failed after max fix attempts, pipeline continued
+- `"approved"` - QA review approved (qa_review gate only)
+
+### Retry & Escalation
+
+| Retry Count | Action |
+|-------------|--------|
+| 1 | Launch debugger agent |
+| 2 | Launch specialist agent |
+| 3 | Launch agent with broader context |
+| >3 | Mark task BLOCKED, skip dependents |
 
 ---
 
@@ -325,3 +407,5 @@ mv .claude/rw-kit.state.json.tmp .claude/rw-kit.state.json
 3. **Maintain consistency** - Keep progress counters in sync with task statuses
 4. **Log important events** - Add logs for debugging and auditing
 5. **Check before resume** - Validate state file exists and is valid before resuming
+6. **Track retries** - Always increment `retry_counts` on failure before retrying
+7. **3-layer verification** - Task is truly complete only when all 3 verification flags are true

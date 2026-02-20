@@ -6,7 +6,7 @@
   "hooks": [
     {
       "type": "prompt",
-      "prompt": "After batch completion or multiple tool executions, assess if context management is needed.\n\nCheck for signs of high context usage:\n- Multiple long agent outputs in recent context\n- Batch just completed (look for 'Batch N completed' or similar)\n- Many files read recently\n- Long conversation without compact\n\nRules:\n1. After each batch completes → suggest compact\n2. After 5+ consecutive tool calls → suggest compact\n3. If seeing truncated outputs → suggest compact immediately\n4. Otherwise → SKIP\n\nReturn 'COMPACT: [reason]' to suggest running /compact, or 'SKIP' to do nothing."
+      "prompt": "After batch completion or multiple tool executions, assess if context management is needed.\n\nCheck for signs of high context usage:\n- Multiple long agent outputs in recent context\n- Batch just completed (look for 'Batch N completed' or similar)\n- Many files read recently\n- Long conversation without compact\n\nRules:\n1. After each batch completes → suggest compact\n2. After 5+ consecutive tool calls → suggest compact\n3. If seeing truncated outputs → suggest compact immediately\n4. Otherwise → SKIP\n\nNote: If .claude/rw-kit.state.json does not exist, this is not an rw-kit execution session - return 'SKIP'.\n\nReturn 'COMPACT: [reason]' to suggest running /compact, or 'SKIP' to do nothing."
     }
   ]
 }

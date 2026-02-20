@@ -2,6 +2,11 @@
 
 > **Purpose**: This checklist ensures no critical issues slip through QA review.
 > The key lesson: **Build passing ≠ Application working**
+>
+> **Related guides**:
+> - `.claude/kbs/smoke-test-guide.md` — Smoke test procedures & auto-fix patterns
+> - `.claude/kbs/retry-policy.md` — Retry limits & escalation paths
+> - `.claude/kbs/test-writing-guide.md` — Test conventions & seed data
 
 ---
 
