@@ -1,7 +1,7 @@
 {
   "name": "rw-kit",
-  "version": "3.0.0",
-  "description": "Fully Agentic Multi-Agent Orchestration Framework for Claude Code - Autonomous dev → UAT → QA pipeline with retry limits, enforcing quality gates, and auto-fix protocols",
+  "version": "3.1.0",
+  "description": "Fully Agentic Multi-Agent Orchestration Framework for Claude Code - Autonomous dev → UAT → QA pipeline with 150k token-budgeted tasks, parallel-first execution, retry limits, and enforcing quality gates",
   "author": {
     "name": "RawinLab",
     "url": "https://github.com/rawinlab"

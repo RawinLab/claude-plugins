@@ -2,13 +2,25 @@
 
 **Multi-Agent Orchestration Framework for Claude Code**
 
-Version: 3.0.0
+Version: 3.1.0
 
 ## Overview
 
 RW-Kit is a comprehensive multi-agent orchestration framework that enables fully autonomous AI collaboration from requirements analysis through UAT testing and QA review to production-grade code.
 
 ## Features
+
+### v3.1 Highlights - Parallel-First & Token-Budgeted
+
+- **150k Token Budget per Task** - Every task sized to fit within agent context (prevents hallucination)
+- **Parallel-First Task Design** - Schema-first, contract-first, layer-split patterns for maximum parallelism
+- **Task Size Tags** - `[size: S|M]` on every task; L/XL tasks auto-split before execution
+- **Parallelism Score** - Measures tasks/batches ratio (target ≥ 3) to ensure wide batches
+- **Task Splitting Rules** - One concern per task, max 5 new files, split by layer/entity
+- **Controlled File Reading** - Agent prompts specify exact files to read (controls token budget)
+- **Status Command** - `/rw-kit:status` to view progress, quality gates, blocked/degraded status
+- **Improved Hook Guards** - Pre-check state file exists, suppress errors silently
+- **Dedicated Knowledge Bases** - `smoke-test-guide.md`, `retry-policy.md`, `task-sizing-guide.md`
 
 ### v3.0 Highlights - Fully Agentic Pipeline
 
@@ -53,8 +65,8 @@ RW-Kit is a comprehensive multi-agent orchestration framework that enables fully
 |---------|-------------|
 | `/rw-kit:clarify` | Detect ambiguities before planning |
 | `/rw-kit:analyze` | Cross-artifact validation |
-| `/rw-kit:plan-module` | Create development plan with E2E spec mapping |
-| `/rw-kit:plan-to-todolist` | Convert plan to todolist |
+| `/rw-kit:plan-module` | Create development plan (parallel-aware + task sizing) |
+| `/rw-kit:plan-to-todolist` | Convert plan to todolist (token-budgeted + parallelism score) |
 | `/rw-kit:execute` | Execute with full agentic pipeline (dev → UAT → QA) |
 | `/rw-kit:implement` | Full workflow automation (requirements → production-grade) |
 | `/rw-kit:create-tests` | Generate unit tests |
@@ -69,15 +81,75 @@ RW-Kit is a comprehensive multi-agent orchestration framework that enables fully
 
 ```
 1. CLARIFY    → Detect ambiguities (max 5 questions)
-2. PLAN       → Phase 0 Research + Exact Contracts + E2E Spec Mapping
-3. TODOLIST   → Tasks by User Story + Dependencies
+2. PLAN       → Phase 0 Research + Exact Contracts + Parallel Strategy + Task Sizing
+3. TODOLIST   → Tasks by User Story + [size: S|M] + Parallelism Score
 4. ANALYZE    → Cross-artifact validation (READ-ONLY)
 5. PRE-FLIGHT → Verify environment (node, npm, prisma, env)
-6. EXECUTE    → Parallel batches + retry limits + 3-layer verification
+6. EXECUTE    → Validate task sizes + parallel batches + retry limits + 3-layer verification
 7. TEST       → Unit + Integration + E2E (enforcing gates, max 3 fixes)
 8. QUALITY    → Smoke test + auto-fix protocols
 9. UAT        → Full test suite + traceability + anti-mock check
 10. QA REVIEW → Code quality + security review + fix cycles → APPROVED/DEGRADED
+```
+
+## Task Sizing (150k Token Budget)
+
+Every task assigned to a subagent must fit within **150k tokens**:
+
+```
+150k Token Budget:
+  25k  System prompt + tools
+  50k  Files read by agent
+  50k  Agent reasoning + code generation
+  10k  Safety buffer (prevents hallucination)
+  15k  Task prompt
+```
+
+| Size | New Files | Read Files | Token Est. | Status |
+|------|----------|-----------|-----------|--------|
+| **S** (Small) | 1-3 | 1-5 | ~30k | Ideal |
+| **M** (Medium) | 3-5 | 3-8 | ~70k | Good |
+| **L** (Large) | 5-10 | 8-15 | ~120k | **Split required** |
+| **XL** | 10+ | 15+ | >150k | **MUST split** |
+
+### Splitting Rules
+
+1. **One concern per task** — one endpoint, one component, one model
+2. **Split by layer** — backend and frontend as separate tasks
+3. **Split by entity** — one model group per task
+4. **Tests separate** — implementation and tests in different tasks
+5. **Max 5 new files** per task
+
+## Parallel Execution Design
+
+### Parallel Patterns
+
+```
+Schema-First:
+  Batch 0: Prisma schema (all models)
+      ├── Batch 1a: ServiceA
+      ├── Batch 1b: ServiceB
+      └── Batch 1c: ServiceC
+
+Contract-First:
+  Batch 0: Shared types + DTOs
+      ├── Batch 1a: Backend endpoints
+      └── Batch 1b: Frontend components
+
+Layer-Split:
+  Batch 0: Schema + shared types
+      ├── Batch 1a: All backend services
+      └── Batch 1b: All frontend components
+```
+
+### Parallelism Score
+
+```
+Parallelism Ratio = total_tasks / total_batches
+
+BAD:  T1 → T2 → T3 → T4 → T5  (ratio: 1.0)
+GOOD: T1,T2,T3 → T4,T5,T6,T7   (ratio: 3.5)
+Target: ratio ≥ 3
 ```
 
 ## Testing Pipeline
@@ -146,6 +218,19 @@ US-003: User can view products → e2e/products/catalog.spec.ts
 | `lead-tester` | UAT testing |
 | `qa-lead` | Quality review |
 
+## Knowledge Bases
+
+| File | Purpose |
+|------|---------|
+| `kbs/task-sizing-guide.md` | 150k token budget, splitting rules, parallel patterns |
+| `kbs/scheduling-pattern.md` | Batch execution, context management, minimal output |
+| `kbs/retry-policy.md` | Retry limits and escalation paths |
+| `kbs/smoke-test-guide.md` | Smoke test procedures and auto-fix patterns |
+| `kbs/qa-checklist.md` | Comprehensive QA checklist |
+| `kbs/test-writing-guide.md` | Test conventions, seed data guide |
+| `kbs/auto-answer-guide.md` | Auto-answer strategy for autonomous execution |
+| `kbs/context-management-guide.md` | Context optimization strategies |
+
 ## 3-Layer Verification
 
 ```
@@ -175,10 +260,10 @@ git clone https://github.com/rawinlab/claude-plugins
 # Start with requirements
 /rw-kit:clarify requirements/01-user-auth.md
 
-# Plan the module (includes E2E spec mapping)
+# Plan the module (parallel-aware + task sizing)
 /rw-kit:plan-module requirements/01-user-auth-clarified.md
 
-# Convert to todolist
+# Convert to todolist (token-budgeted + parallelism score)
 /rw-kit:plan-to-todolist plans/1-1-auth-plan.md
 
 # Validate before execution
@@ -187,15 +272,18 @@ git clone https://github.com/rawinlab/claude-plugins
 # Execute with parallel batches (seeds data automatically)
 /rw-kit:execute plans/1-1-auth-todolist.md
 
+# Check progress anytime
+/rw-kit:status
+
 # Or run full workflow
 /rw-kit:implement user-authentication feature
 ```
 
 ## Configuration
 
-### State File (v3.0)
+### State File (v3.1)
 - Location: `.claude/rw-kit.state.json`
-- Tracks: Tasks, batches, progress, retry counts, quality gates, blocked tasks, degraded phases, resume point
+- Tracks: Tasks, batches, progress, retry counts, quality gates, blocked tasks, degraded phases, user stories, verification flags, resume point
 
 ### Quality Gates
 
