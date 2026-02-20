@@ -379,20 +379,45 @@ Task(subagent_type: "Explore",
   run_in_background: true)
 ```
 
-#### Step 1.4: Group Pending Tasks into Batches
+#### Step 1.4: Validate Task Sizes (150k Token Budget)
+
+> **Reference**: See `.claude/kbs/task-sizing-guide.md` for full details.
+
+For each pending task, check the `[size: S|M]` tag:
+- **S or M**: OK — proceed
+- **L**: Warning — consider splitting before execution
+- **XL or no size tag**: Split the task into smaller ones before proceeding
+
+**Quick validation**: Count `[files: ...]` for each task. If a task lists more than 5 output files, it's likely too large.
+
+If tasks need splitting:
+1. Break Large task into 2-3 Medium tasks
+2. Update the todolist file with new tasks
+3. Re-assign dependencies
+
+#### Step 1.5: Group Pending Tasks into Batches (Parallel-Optimized)
+
 Group **only pending tasks** by dependency level:
-- **Batch 0**: Tasks with no dependencies (root tasks)
-- **Batch 1**: Tasks depending only on Batch 0
+- **Batch 0**: Tasks with no dependencies (root tasks — schema, shared types)
+- **Batch 1**: Tasks depending only on Batch 0 (independent implementations — MAX PARALLEL)
 - **Batch 2**: Tasks depending only on Batch 0 or 1
 - Continue until all tasks are assigned
 
-#### Step 1.5: Compact After Planning
+**Parallel optimization rules**:
+- Max **5-7 tasks** per batch
+- If a batch has only 1 task, consider if its dependency can be relaxed
+- Backend and frontend tasks with shared-type-only dependency can run in the same batch
+- **Parallelism ratio** target: total_tasks / total_batches ≥ 3
+
+#### Step 1.6: Compact After Planning
 ```
 Planning Summary:
 - Total tasks: X
 - Already completed: Y (skipped)
 - Pending tasks: Z
 - Batches created: N
+- Parallelism ratio: {tasks/batches}
+- Tasks needing split: [list or "none"]
 
 /compact
 ```
@@ -404,14 +429,27 @@ Planning Summary:
 For EACH batch:
 
 #### Step 2.1: Launch Batch (Max 5-7 agents)
+
+> **Token budget**: Each agent has ~150k usable tokens. Control file-reading by specifying exactly which files to read.
+
 ```javascript
 // Launch ALL tasks in current batch with MINIMAL OUTPUT template
+// IMPORTANT: List specific files to read — don't let agent explore freely
 Task(subagent_type: "backend-development:backend-architect", prompt: `
   Task 1: Create auth endpoints
+
+  Read these files first (for context/patterns):
+  - apps/api/src/app.module.ts (module structure)
+  - packages/database/schema.prisma (current schema)
 
   Requirements:
   - POST /auth/register
   - POST /auth/login
+
+  Output files (max 5):
+  - apps/api/src/auth/auth.controller.ts
+  - apps/api/src/auth/auth.service.ts
+  - apps/api/src/auth/auth.module.ts
 
   ---
   RESPONSE FORMAT (CRITICAL):

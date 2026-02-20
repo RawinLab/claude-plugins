@@ -11,6 +11,10 @@ You are a highly skilled **System Analyst, Project Manager, and Tech Lead**.
 
 Convert ONE development plan into an actionable todolist file and register it in `00-master-todolist.md`.
 
+> **Critical references**:
+> - `.claude/kbs/task-sizing-guide.md` — Token budgets, task splitting rules, parallel patterns
+> - `.claude/kbs/scheduling-pattern.md` — Batch execution and context management
+
 ## Input
 
 Plan File: `$ARGUMENTS` (e.g., `plans/1-1-bird-physics-plan.md`)
@@ -24,6 +28,10 @@ Plan File: `$ARGUMENTS` (e.g., `plans/1-1-bird-physics-plan.md`)
    - Register the new todolist in `plans/00-master-todolist.md`
 
 3. **Use `-todolist.md` suffix** (not `-todo.md`)
+
+4. **Every task must fit within 150k token context** (see Task Sizing below)
+
+5. **Maximize parallel batches** — wide batches > deep chains
 
 ---
 
@@ -111,8 +119,8 @@ Write({
 - [ ] Criterion 2
 
 ### Tasks
-- [ ] T001 P1 US-001 {Task description} [agent: backend-architect] [deps: none] [files: file.ts]
-- [ ] T002 P1 US-001 {Task description} [agent: frontend-developer] [deps: T001] [files: Component.tsx]
+- [ ] T001 P1 US-001 {Task description} [agent: backend-architect] [deps: none] [files: file.ts] [size: S]
+- [ ] T002 P1 US-001 {Task description} [agent: frontend-developer] [deps: T001] [files: Component.tsx] [size: M]
 
 ### Story Progress: 0/{count}
 
@@ -137,31 +145,55 @@ Write({
 
 ---
 
-## Execution Batches
+## Execution Batches (Parallel-Optimized)
 
-### Batch 0 - No Dependencies
-| Task | Story | Agent | Files |
-|------|-------|-------|-------|
-| T001 | US-001 | backend-architect | file.ts |
+> **Goal**: Maximize batch width (parallel tasks) and minimize batch depth (sequential chains).
+> **Reference**: See \`.claude/kbs/task-sizing-guide.md\` for parallel design patterns.
 
-### Batch 1 - Depends on Batch 0
-| Task | Story | Agent | Deps | Files |
+### Parallelism Score
+
+Calculate before finalizing:
+- **Total batches**: {N} (fewer is better)
+- **Avg tasks per batch**: {avg} (more is better, max 7)
+- **Longest chain**: {length} (shorter is better)
+- **Parallelism ratio**: {total_tasks / total_batches} (higher is better, target ≥ 3)
+
+### Batch 0 - Foundation (Schema + Shared Types)
+| Task | Story | Agent | Size | Files |
 |------|-------|-------|------|-------|
-| T002 | US-001 | frontend-developer | T001 | Component.tsx |
+| T001 | ALL | backend-architect | S | schema.prisma |
+| T002 | ALL | backend-architect | S | shared/types.ts, shared/dtos.ts |
+
+### Batch 1 - Independent Implementations (MAX PARALLEL)
+| Task | Story | Agent | Size | Deps | Files |
+|------|-------|-------|------|------|-------|
+| T003 | US-001 | backend-architect | M | T001 | auth.service.ts, auth.controller.ts |
+| T004 | US-002 | backend-architect | M | T001 | user.service.ts, user.controller.ts |
+| T005 | US-001 | frontend-developer | M | T002 | LoginForm.tsx, RegisterForm.tsx |
+| T006 | US-002 | frontend-developer | M | T002 | ProfilePage.tsx |
+
+### Batch 2 - Integration Wiring
+| Task | Story | Agent | Size | Deps | Files |
+|------|-------|-------|------|------|-------|
+| T007 | US-001 | frontend-developer | S | T003, T005 | auth API hooks |
 
 ### Batch N-1 - Seed Data & Integration Tests
-| Task | Story | Agent | Deps | Files |
-|------|-------|-------|------|-------|
-| T0S1 | ALL | backend-architect | DB tasks | prisma/seed-test.ts |
-| T0I1 | US-001 | test-automator | service tasks | *.integration.spec.ts |
+| Task | Story | Agent | Size | Deps | Files |
+|------|-------|-------|------|------|-------|
+| T0S1 | ALL | backend-architect | S | DB tasks | prisma/seed-test.ts |
+| T0I1 | US-001 | test-automator | M | service tasks | *.integration.spec.ts |
 
 ### Batch N - E2E Tests (Last Batch)
-| Task | Story | Agent | Deps | Files |
-|------|-------|-------|------|-------|
-| T0E1 | US-001 | test-automator | All US-001 tasks | e2e/{feature}/{story}.spec.ts |
-| T0E2 | US-002 | test-automator | All US-002 tasks | e2e/{feature}/{story}.spec.ts |
+| Task | Story | Agent | Size | Deps | Files |
+|------|-------|-------|------|------|-------|
+| T0E1 | US-001 | test-automator | M | All US-001 tasks | e2e/{feature}/{story}.spec.ts |
+| T0E2 | US-002 | test-automator | M | All US-002 tasks | e2e/{feature}/{story}.spec.ts |
 
-> **Testing batch order**: Seed data → Integration tests → E2E tests (always last)
+> **Rules**:
+> - Testing batch order: Seed data → Integration tests → E2E tests (always last)
+> - Max 7 tasks per batch, prefer 5-7 for optimal parallelism
+> - If a batch has only 1 task, consider merging with adjacent batch
+> - Each task size MUST be S or M (split L/XL tasks)
 
 ---
 
@@ -251,7 +283,7 @@ Read({ file_path: "plans/00-master-todolist.md" })
 ## Task Format
 
 ```
-- [ ] [TaskID] [Priority] [StoryRef] Description [agent: X] [deps: Y] [files: Z]
+- [ ] [TaskID] [Priority] [StoryRef] Description [agent: X] [deps: Y] [files: Z] [size: S|M]
 ```
 
 Where:
@@ -261,6 +293,25 @@ Where:
 - `agent`: Specialized agent to use
 - `deps`: Task dependencies (none, or T001, T002)
 - `files`: Expected output files (for verification)
+- `size`: Task size estimate — **S** (small, ~30k tokens), **M** (medium, ~70k tokens)
+
+### Task Sizing Rules
+
+> **Reference**: See `.claude/kbs/task-sizing-guide.md` for full details.
+
+| Size | Files Created | Files Read | Token Est. | Status |
+|------|-------------|-----------|-----------|--------|
+| **S** | 1-3 | 1-5 | ~30k | Ideal |
+| **M** | 3-5 | 3-8 | ~70k | Good |
+| **L** | 5-10 | 8-15 | ~120k | **Split into S+M** |
+| **XL** | 10+ | 15+ | >150k | **MUST split** |
+
+**Splitting checklist** — if any task is L or XL:
+1. Split by concern (one endpoint/component per task)
+2. Split by layer (backend vs frontend)
+3. Split by entity (one model group per task)
+4. Extract tests into separate tasks
+5. Re-check: max 5 new files per task
 
 ## Available Agents
 
@@ -282,4 +333,6 @@ Where:
 3. ✅ Seed data tasks included (prisma/seed-test.ts)
 4. ✅ Integration test tasks included (per key service)
 5. ✅ E2E test tasks mapped to user stories (per US-XXX)
-6. 📋 Ready for `/rw-kit:analyze` then `/rw-kit:execute`
+6. ✅ All tasks sized S or M (no L/XL — split if needed)
+7. ✅ Parallelism ratio ≥ 3 (total_tasks / total_batches)
+8. 📋 Ready for `/rw-kit:analyze` then `/rw-kit:execute`

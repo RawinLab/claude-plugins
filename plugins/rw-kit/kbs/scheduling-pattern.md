@@ -198,6 +198,23 @@ for (subBatch of subBatches) {
 
 ---
 
+## Task Sizing (150k Token Budget)
+
+> **Full details**: See `.claude/kbs/task-sizing-guide.md` for complete guidelines.
+
+Every task assigned to a subagent must fit within **150k tokens** to avoid hallucination:
+
+| Size | New Files | Read Files | Token Est. | Action |
+|------|----------|-----------|-----------|--------|
+| **S** | 1-3 | 1-5 | ~30k | Assign directly |
+| **M** | 3-5 | 3-8 | ~70k | Assign directly |
+| **L** | 5-10 | 8-15 | ~120k | Split if possible |
+| **XL** | 10+ | 15+ | >150k | **MUST split** |
+
+**Split rules**: One concern per task, split by layer, max 5 new files per task.
+
+---
+
 ## Batch Size Guidelines
 
 | Scenario | Max Agents | Reason |
@@ -206,6 +223,24 @@ for (subBatch of subBatches) {
 | Complex tasks | 3-5 | Each agent returns more data |
 | Simple tasks | 7-10 | Less context per task |
 | Testing phase | 3-5 | Test output can be large |
+
+### Parallelism Optimization
+
+**Goal**: Maximize batch width (tasks per batch), minimize batch depth (number of sequential batches).
+
+**Measure**: Parallelism ratio = total_tasks / total_batches (target ≥ 3)
+
+```
+BAD:  T1 → T2 → T3 → T4 → T5  (ratio: 1.0, fully sequential)
+OK:   T1,T2 → T3,T4 → T5       (ratio: 1.7)
+GOOD: T1,T2,T3 → T4,T5,T6,T7   (ratio: 3.5)
+BEST: T1,T2,T3,T4,T5 → T6,T7   (ratio: 3.5)
+```
+
+**Patterns for high parallelism**:
+1. **Schema-first**: Define models first → implement services in parallel
+2. **Contract-first**: Define shared types → backend + frontend in parallel
+3. **Layer-split**: Backend tasks and frontend tasks run in same batch
 
 ---
 

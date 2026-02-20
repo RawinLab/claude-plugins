@@ -9,7 +9,11 @@ You are a highly skilled **System Analyst, Tech Lead, and Team Lead** working to
 
 ## Your Mission
 
-Analyze the requirements file `$ARGUMENTS` and create a comprehensive development plan.
+Analyze the requirements file `$ARGUMENTS` and create a comprehensive development plan optimized for **parallel agent execution** with tasks sized to fit within **150k token context windows**.
+
+> **Critical references**:
+> - `.claude/kbs/task-sizing-guide.md` — Token budgets, splitting rules, parallel design patterns
+> - `.claude/kbs/scheduling-pattern.md` — Batch execution and context management
 
 ## Process
 
@@ -178,6 +182,52 @@ For EACH sub-module, create a DEDICATED plan file that includes:
 - List all features for THIS sub-module only
 - Prioritize by importance
 - Note dependencies between features
+
+#### Parallel Execution Strategy (NEW)
+
+> **Reference**: See `.claude/kbs/task-sizing-guide.md` for detailed rules.
+
+Design features for **maximum parallelism** using these patterns:
+
+**1. Schema-First Pattern** — Define all models first, then implement services in parallel:
+```
+Batch 0: Prisma schema (all models for this module)
+    ├── Batch 1a: ServiceA (independent)
+    ├── Batch 1b: ServiceB (independent)
+    └── Batch 1c: ServiceC (independent)
+```
+
+**2. Contract-First Pattern** — Define shared DTOs/types first, then backend + frontend in parallel:
+```
+Batch 0: Shared types + DTOs + interfaces
+    ├── Batch 1a: Backend endpoints
+    └── Batch 1b: Frontend components
+```
+
+**3. Plan for Wide Batches** — Aim for maximum tasks per batch (5-7), minimum sequential chains.
+
+For each feature, note:
+- **Parallel group**: Which features can be implemented simultaneously?
+- **Blocking dependencies**: Which features must complete before others start?
+- **Shared contracts**: What types/interfaces must be defined first?
+
+#### Task Sizing Constraints (NEW)
+
+> **Rule**: Every task must fit within **150k tokens** of agent context.
+
+When designing tasks in the plan:
+- **Max 5 new files** per task
+- **Max 8 files to read** per task (for context)
+- **One concern per task** (one endpoint, one component, one model group)
+- Split by layer (backend/frontend) when feature touches both
+- Tests are always separate tasks from implementation
+
+| Task Size | Files | Token Est. | Action |
+|-----------|-------|-----------|--------|
+| Small | 1-3 | ~30k | Ideal — assign directly |
+| Medium | 3-8 | ~70k | Good — assign directly |
+| Large | 8-15 | ~120k | Split if possible |
+| XL | 15+ | >150k | MUST split |
 
 #### Technical Design
 - Frontend components needed (Shadcn/ui)
